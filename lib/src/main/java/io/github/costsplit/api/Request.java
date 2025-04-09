@@ -1,27 +1,25 @@
 package io.github.costsplit.api;
 
-public sealed interface Request {
+public interface Request {
 
     /// POST: Start user creation request
     ///
     /// @param name     username
     /// @param email    associated email to which verification code will be sent
     /// @param password password of the account
-    record CreateUser(String name, String email, String password) implements Request {
+    record CreateUser(String name, String email, String password) {
         public static final String ENDPOINT = "/auth/create";
     }
 
     /// GET: Get user data
-    ///
-    /// @param token user token
-    record UserData(String token) implements Request {
-        public static final String ENDPOINT = "/user";
+    interface UserData {
+        String ENDPOINT = "/user";
     }
 
-    /// POST: Complete user creation
+    /// GET: Complete user creation
     ///
     /// @param token one time auth token
-    record VerifyUser(String token) implements Request {
+    record VerifyUser(String token) {
         public static final String ENDPOINT = "/auth/verify";
     }
 
@@ -29,33 +27,29 @@ public sealed interface Request {
     ///
     /// @param email    user email
     /// @param password user password
-    record Login(String email, String password) implements Request {
+    record Login(String email, String password) {
         public static final String ENDPOINT = "/auth/login";
     }
 
     /// GET: Close session
     /// DELETE: Delete user account
-    ///
-    /// @param token user token
-    record Logout(String token) implements Request {
-        public static final String ENDPOINT = "/user";
+    interface Logout {
+        String ENDPOINT = "/logout";
     }
 
-    /// POST: Create group
+    /// PUT: Create group
     /// GET: Get group data
     /// DELETE: Delete group
     ///
     /// @param groupName name of the group
-    /// @param token     user token
-    record Group(String groupName, String token) implements Request {
+    record Group(String groupName) {
         public static final String ENDPOINT = "/group";
     }
 
     /// GET: Get group invite URL
     ///
     /// @param groupName name of the group for the invite
-    /// @param token     user token
-    record GroupInvite(String groupName, String token) implements Request {
+    record GroupInvite(String groupName) {
         public static final String ENDPOINT = "/invite";
     }
 
@@ -63,8 +57,7 @@ public sealed interface Request {
     ///
     /// @param email     email of the user that we are working with
     /// @param groupName name of the group that we are working with
-    /// @param token     user token
-    record AddToGroup(String email, String groupName, String token) implements Request {
+    record AddToGroup(String email, String groupName) {
         public static final String ENDPOINT = "/group";
     }
 
@@ -72,8 +65,7 @@ public sealed interface Request {
     ///
     /// @param group    working group
     /// @param purchase new purchase
-    /// @param token    user token
-    record Purchase(String group, Purchase purchase, String token) implements Request {
+    record Purchase(String group, Purchase purchase) {
         public static final String ENDPOINT = "/purchase";
     }
 }
