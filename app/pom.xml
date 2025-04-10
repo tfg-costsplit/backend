@@ -49,6 +49,11 @@
             <version>1.18.38</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-core</artifactId>
+            <version>6.6.13.Final</version>
+        </dependency>
 
         <dependency>
             <groupId>com.squareup.retrofit2</groupId>
@@ -78,6 +83,12 @@
             <groupId>com.github.kirviq</groupId>
             <artifactId>dumbster</artifactId>
             <version>1.7.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>2.3.232</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

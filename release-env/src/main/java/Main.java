@@ -15,6 +15,10 @@ public class Main {
                 .senderPassword(env.get("CS_SENDER_PASSWORD"))
                 .isLocal(Boolean.parseBoolean(env.get("CS_LOCAL_MODE")))
                 .secret(env.get("CS_SECRET"))
+                .dbDriver(org.postgresql.Driver.class.getName())
+                .dbUrl(env.get("CS_DB_URL"))
+                .dbUser(env.get("CS_DB_USER"))
+                .dbPassword(env.get("CS_DB_PASSWORD"))
                 .build()
                 .toApp()
                 .start();

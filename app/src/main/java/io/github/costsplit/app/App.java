@@ -6,6 +6,8 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import io.github.costsplit.api.Request;
+import io.github.costsplit.api.Response;
+import io.github.costsplit.app.orm.Credential;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ForbiddenResponse;
@@ -13,9 +15,13 @@ import io.javalin.http.InternalServerErrorResponse;
 import io.javalin.http.UnauthorizedResponse;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.experimental.Accessors;
 import org.apache.commons.mail.DefaultAuthenticator;
 import org.apache.commons.mail.EmailException;
 import org.apache.commons.mail.SimpleEmail;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+import org.hibernate.cfg.Environment;
 
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
@@ -36,6 +42,7 @@ public class App {
     @Getter
     private final Config config;
     private Javalin javalin;
+    private SessionFactory sessionFactory;
 
     private App(Config config) {
         this.config = config;
@@ -98,6 +105,14 @@ public class App {
     }
 
     public App start() {
+        sessionFactory = new Configuration()
+                .setProperty(Environment.HBM2DDL_AUTO, config.hbm2ddl)
+                .setProperty(Environment.JAKARTA_JDBC_DRIVER, config.dbDriver)
+                .setProperty(Environment.JAKARTA_JDBC_URL, config.dbUrl)
+                .setProperty(Environment.JAKARTA_JDBC_USER, config.dbUser)
+                .setProperty(Environment.JAKARTA_JDBC_PASSWORD, config.dbPassword)
+                .addAnnotatedClass(Credential.class)
+                .buildSessionFactory();
         javalin = Javalin.create(config -> config.jetty.modifyServer(server -> server.setStopTimeout(5_000)))
                 .beforeMatched(ctx -> {
                     if (ctx.path().startsWith("/auth/"))
@@ -143,9 +158,30 @@ public class App {
                     var tok = ctx.pathParam("token");
                     try {
                         var decodedTok = verifier.verify(tok);
+                        sessionFactory.inTransaction(s -> {
+                            s.persist(new Credential(
+                                    decodedTok.getClaim("email").asString(),
+                                    decodedTok.getClaim("username").asString(),
+                                    decodedTok.getClaim("password").asString(),
+                                    decodedTok.getClaim("salt").asString()));
+                        });
                     } catch (JWTVerificationException e) {
                         throw new ForbiddenResponse("Invalid token");
                     }
+                })
+                .post(Request.Login.ENDPOINT, ctx -> {
+                    var credentials = ctx.bodyAsClass(Request.Login.class);
+                    var user = sessionFactory.fromTransaction(s -> s.find(Credential.class, credentials.email()));
+                    if (user == null)
+                        throw new UnauthorizedResponse("Email not in use");
+                    var hash = hashPassword(credentials.password().toCharArray(), Base64.getDecoder().decode(user.getSalt()));
+                    var hash64 = Base64.getEncoder().encodeToString(hash);
+                    if (!hash64.equals(user.getHash())) {
+                        throw new UnauthorizedResponse("Invalid credentials");
+                    }
+                    ctx.json(new Response.Login(JWT.create()
+                            .withClaim("email", credentials.email())
+                            .sign(algorithm)));
                 })
                 .start(config.host, config.port);
         return this;
@@ -156,16 +192,27 @@ public class App {
     }
 
     @Builder
-    public record Config(
-            String host,
-            int port,
-            String secret,
-            boolean isLocal,
-            String smtpHost,
-            int smtpPort,
-            String senderMail,
-            String senderPassword
-    ) {
+    @Accessors(fluent = true)
+    @Getter
+    public static class Config {
+        @Builder.Default
+        private final String host = "localhost";
+        @Builder.Default
+        private final int port = 8080;
+        private final String secret;
+        @Builder.Default
+        private final boolean isLocal = false;
+        private final String smtpHost;
+        @Builder.Default
+        private final int smtpPort = 25;
+        private final String senderMail;
+        private final String senderPassword;
+        @Builder.Default
+        private final String hbm2ddl = "none";
+        private final String dbDriver;
+        private final String dbUrl;
+        private final String dbUser;
+        private final String dbPassword;
         public App toApp() {
             return new App(this);
         }
