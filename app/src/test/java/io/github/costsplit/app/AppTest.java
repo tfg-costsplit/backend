@@ -59,7 +59,7 @@ public class AppTest {
         }
     }
 
-    public interface AppService {
+    interface AppService {
         @POST(Request.CreateUser.ENDPOINT)
         Call<Void> createUser(@Body Request.CreateUser user);
     }

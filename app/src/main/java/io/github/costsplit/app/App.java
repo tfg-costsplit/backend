@@ -98,7 +98,7 @@ public class App {
     }
 
     public App start() {
-        javalin = Javalin.create()
+        javalin = Javalin.create(config -> config.jetty.modifyServer(server -> server.setStopTimeout(5_000)))
                 .beforeMatched(ctx -> {
                     if (ctx.path().startsWith("/auth/"))
                         return;
@@ -139,7 +139,7 @@ public class App {
                             + url;
                     sendMail(config.smtpHost, config.smtpPort, config.senderMail, config.senderPassword, body.email(), subject, message);
                 })
-                .start(config.port);
+                .start(config.host, config.port);
         return this;
     }
 
