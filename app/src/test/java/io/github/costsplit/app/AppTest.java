@@ -54,6 +54,7 @@ public class AppTest {
         if (response.isSuccessful())
             return;
         try (var errbody = response.errorBody()) {
+            assert errbody != null;
             assertEquals("Couldn't send confirmation mail", new String(errbody.bytes(), StandardCharsets.UTF_8));
         }
     }

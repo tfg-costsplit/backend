@@ -158,7 +158,7 @@ public class App {
             String senderMail,
             String senderPassword
     ) {
-        App toApp() {
+        public App toApp() {
             return new App(this);
         }
     }
