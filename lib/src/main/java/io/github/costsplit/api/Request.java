@@ -2,6 +2,55 @@ package io.github.costsplit.api;
 
 public interface Request {
 
+    /// POST: Get user data
+    interface UserData {
+        String ENDPOINT = "/user";
+    }
+
+    /// GET: Complete user creation
+    ///
+    /// Path params:
+    /// - `token`: JWT
+    interface VerifyUser {
+        String ENDPOINT = "/auth/verify/{token}";
+    }
+
+    /// GET: Delete token
+    /// DELETE: Delete user account
+    ///
+    /// Path params:
+    /// - `token`: JWT
+    interface Logout {
+        String ENDPOINT = "/logout/{token}";
+    }
+
+    /// PUT: Create group
+    /// POST: Get group data
+    /// DELETE: Delete group
+    ///
+    /// Path params:
+    /// - `name`: group name
+    interface Group {
+        String ENDPOINT = "/group/{name}";
+    }
+
+    /// POST: Get group invite URL
+    ///
+    /// Path params:
+    /// - name: group name
+    interface GroupInvite {
+        String ENDPOINT = "/invite/{name}";
+    }
+
+    /// PUT: Add user to a group
+    ///
+    /// Path params:
+    /// - `group`: group name
+    /// - `email`: email of the user to add
+    interface AddToGroup {
+        String ENDPOINT = "/group/{group}/{email}";
+    }
+
     /// POST: Start user creation request
     ///
     /// @param name     username
@@ -9,18 +58,6 @@ public interface Request {
     /// @param password password of the account
     record CreateUser(String name, String email, String password) {
         public static final String ENDPOINT = "/auth/create";
-    }
-
-    /// GET: Get user data
-    interface UserData {
-        String ENDPOINT = "/user";
-    }
-
-    /// GET: Complete user creation
-    ///
-    /// @param token one time auth token
-    record VerifyUser(String token) {
-        public static final String ENDPOINT = "/auth/verify/{token}";
     }
 
     /// POST: Login
@@ -31,41 +68,11 @@ public interface Request {
         public static final String ENDPOINT = "/auth/login";
     }
 
-    /// GET: Close session
-    /// DELETE: Delete user account
-    interface Logout {
-        String ENDPOINT = "/logout";
-    }
-
-    /// PUT: Create group
-    /// GET: Get group data
-    /// DELETE: Delete group
-    ///
-    /// @param groupName name of the group
-    record Group(String groupName) {
-        public static final String ENDPOINT = "/group";
-    }
-
-    /// GET: Get group invite URL
-    ///
-    /// @param groupName name of the group for the invite
-    record GroupInvite(String groupName) {
-        public static final String ENDPOINT = "/invite";
-    }
-
-    /// PUT: Add user to a group
-    ///
-    /// @param email     email of the user that we are working with
-    /// @param groupName name of the group that we are working with
-    record AddToGroup(String email, String groupName) {
-        public static final String ENDPOINT = "/group";
-    }
-
     /// POST: Add/Edit purchase
     ///
     /// @param group    working group
     /// @param purchase new purchase
-    record Purchase(String group, Purchase purchase) {
+    record Purchase(String group, io.github.costsplit.api.model.Purchase purchase) {
         public static final String ENDPOINT = "/purchase";
     }
 }
