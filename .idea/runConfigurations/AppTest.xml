@@ -11,9 +11,6 @@
     <option name="MAIN_CLASS_NAME" value="io.github.costsplit.app.AppTest" />
     <option name="METHOD_NAME" value="" />
     <option name="TEST_OBJECT" value="class" />
-    <envs>
-      <env name="COSTSPLIT_SECRET" value="1234" />
-    </envs>
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

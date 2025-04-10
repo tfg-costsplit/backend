@@ -38,6 +38,17 @@
             <artifactId>java-jwt</artifactId>
             <version>4.5.0</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-email</artifactId>
+            <version>1.6.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.38</version>
+            <scope>provided</scope>
+        </dependency>
 
         <dependency>
             <groupId>com.squareup.retrofit2</groupId>
@@ -63,5 +74,29 @@
             <version>2.11.0</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.github.kirviq</groupId>
+            <artifactId>dumbster</artifactId>
+            <version>1.7.1</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>1.18.38</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
