@@ -139,6 +139,14 @@ public class App {
                             + url;
                     sendMail(config.smtpHost, config.smtpPort, config.senderMail, config.senderPassword, body.email(), subject, message);
                 })
+                .get(Request.VerifyUser.ENDPOINT, ctx -> {
+                    var tok = ctx.pathParam("token");
+                    try {
+                        var decodedTok = verifier.verify(tok);
+                    } catch (JWTVerificationException e) {
+                        throw new ForbiddenResponse("Invalid token");
+                    }
+                })
                 .start(config.host, config.port);
         return this;
     }

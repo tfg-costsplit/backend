@@ -20,7 +20,7 @@ public interface Request {
     ///
     /// @param token one time auth token
     record VerifyUser(String token) {
-        public static final String ENDPOINT = "/auth/verify";
+        public static final String ENDPOINT = "/auth/verify/{token}";
     }
 
     /// POST: Login
