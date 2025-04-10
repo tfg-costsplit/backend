@@ -29,7 +29,7 @@ public class AppTest {
                 .senderMail("sender@test.net")
                 .senderPassword("1234")
                 .smtpHost("localhost")
-                .smtpPort(1)
+                .smtpPort(25)
                 .isLocal(true)
                 .build()
                 .toApp()
