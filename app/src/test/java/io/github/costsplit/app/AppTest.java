@@ -18,7 +18,6 @@ import java.util.function.Supplier;
 import static io.github.costsplit.app.TestHelperKt.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class AppTest {
 
     static Supplier<String> err(Response<?> res) {
@@ -46,18 +45,21 @@ public class AppTest {
         reset();
     }
 
-    @Test
+        @Test
     void createUser() {
         withMail();
         var call = getAppService().createUser(new Request.CreateUser("receiver", "receiver@test.net", "p455w0rd"));
-        var response = assertDoesNotThrow(call::execute);
-        assertTrue(response::isSuccessful, err(response));
+        var call2 = call.clone();
+        var res = assertDoesNotThrow(call::execute);
+        var res2 = assertDoesNotThrow(call2::execute);
+        assertTrue(res::isSuccessful, err(res));
+        assertFalse(res2::isSuccessful, res2.message());
     }
 
     @Test
     void verifyUser() {
         var id = insertUser("receiver@test.net", "1234");
-        var token = getApp().genVerificationJwt$app(id);
+        var token = getApp().getAuthProvider$app().generateToken(id);
         var call = getAppService().verifyUser(token);
         var response = assertDoesNotThrow(call::execute);
         assertTrue(response::isSuccessful, err(response));
