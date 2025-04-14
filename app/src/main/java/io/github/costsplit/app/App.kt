@@ -9,6 +9,7 @@ import io.javalin.openapi.*
 import io.javalin.openapi.plugin.OpenApiPlugin
 import io.javalin.openapi.plugin.swagger.SwaggerPlugin
 import javalinjwt.JWTProvider
+import javalinjwt.JavalinJWT
 import org.apache.commons.mail.DefaultAuthenticator
 import org.apache.commons.mail.EmailException
 import org.apache.commons.mail.SimpleEmail
@@ -43,6 +44,15 @@ private object User : IntIdTable("user") {
     val hash = binary("hash", 32)
     val verified = bool("verified").default(false)
 }
+
+private object Group : IntIdTable("group") {
+    val name = varchar("name", 254)
+}
+
+private data class GroupResponse(
+    val id: Int,
+    val name: String,
+)
 
 private data class JsonErrorResponse(
     val title: String,
@@ -262,7 +272,7 @@ class App(
 
     @OpenApi(
         operationId = "verifyUser",
-        path = "/auth/verify",
+        path = "/auth/verify/{token}",
         summary = "Confirm the email of an account",
         description = """
             Confirm the email of an account.
@@ -295,6 +305,30 @@ class App(
                         ctx.html("<h1>Couldn't confirm account</h1>")
                     throw BadRequestResponse("Invalid/missing token")
                 },
+            )
+    }
+
+    @OpenApi(
+        operationId = "createGroup",
+        path = "/group/{name}",
+    )
+    private fun createGroup(ctx: Context) {
+        JavalinJWT.getTokenFromHeader(ctx).flatMap(idProvider::validateToken)
+            .ifPresentOrElse(
+                { token ->
+                    val groupName = ctx.pathParam("name")
+                    if (!token.getClaim("verified").asBoolean())
+                        throw UnauthorizedResponse("User must be verified")
+                    val id = transaction(database) {
+                        Group.insertAndGetId {
+                            it[name] = groupName
+                        }
+                    }
+                    ctx.json(id)
+                },
+                {
+                    throw UnauthorizedResponse("Invalid/missing token")
+                }
             )
     }
 
