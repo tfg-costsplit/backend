@@ -1,0 +1,207 @@
+{
+  "openapi" : "3.0.3",
+  "info" : {
+    "title" : "COSTSPLIT API",
+    "version" : ""
+  },
+  "paths" : {
+    "/auth/create" : {
+      "post" : {
+        "tags" : [ ],
+        "summary" : "Create an user in the database with pending verification",
+        "description" : "\n            An unverified user can only store account details in the server.\n            An unverified user may join a group trough an invite, but it won't be able to add purchases.\n            An unverified user may have their account details, including the password, modified if another request for registering is done with the same email.\n            Returns a JWT for future requests.\n        ",
+        "operationId" : "createUser",
+        "parameters" : [ ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateUser"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "JWT for authenticating in future requests",
+            "content" : {
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false,
+        "security" : [ ]
+      }
+    },
+    "/auth/verify" : {
+      "post" : {
+        "tags" : [ ],
+        "summary" : "Log a user in",
+        "description" : "\n            Log a user into the server trough authentication credentials and return a JWT for future requests.\n        ",
+        "operationId" : "loginUser",
+        "parameters" : [ ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Login"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "JWT for authenticating in future requests",
+            "content" : {
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false,
+        "security" : [ ]
+      },
+      "get" : {
+        "tags" : [ ],
+        "summary" : "Confirm the email of an account",
+        "description" : "\n            Confirm the email of an account.\n        ",
+        "operationId" : "verifyUser",
+        "parameters" : [ {
+          "name" : "token",
+          "in" : "path",
+          "description" : "Auth JWT",
+          "required" : false,
+          "deprecated" : false,
+          "allowEmptyValue" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Account confirmation response",
+            "content" : {
+              "text/html" : { }
+            }
+          },
+          "403" : {
+            "description" : "Forbidden",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/html" : { },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false,
+        "security" : [ ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "CreateUser" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "name", "email", "password" ]
+      },
+      "JsonErrorResponse" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "title" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "details" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "title", "status", "type", "details" ]
+      },
+      "Login" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "email" : {
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "email", "password" ]
+      }
+    },
+    "securitySchemes" : { }
+  },
+  "servers" : [ ],
+  "security" : null
+}
