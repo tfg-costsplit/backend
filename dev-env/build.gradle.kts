@@ -5,6 +5,7 @@
 plugins {
     id("buildlogic.java-conventions")
     kotlin("jvm")
+    application
 }
 
 dependencies {
@@ -25,4 +26,7 @@ repositories {
 }
 kotlin {
     jvmToolchain(21)
+}
+application {
+    mainClass = "MainKt"
 }

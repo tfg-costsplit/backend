@@ -25,7 +25,7 @@ fun main() {
         host = dt["CS_HOST"],
         port = dt["CS_PORT"].toInt(),
         smtpHost = dt["CS_SMTP_HOST"],
-        smtpPort = dt["CS_SMTP_PORT"].toInt(),
+        smtpPort = dumbster.port,
         senderMail = dt["CS_SENDER_MAIL"],
         senderPassword = dt["CS_SENDER_PASSWORD"],
         secret = dt["CS_SECRET"],

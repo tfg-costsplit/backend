@@ -7,7 +7,6 @@ import io.javalin.testtools.JavalinTest
 import org.assertj.core.api.Assertions.assertThat
 import org.h2.Driver
 import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.Table.Dual.clone
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test

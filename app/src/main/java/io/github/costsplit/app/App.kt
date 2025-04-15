@@ -311,6 +311,17 @@ class App(
     @OpenApi(
         operationId = "createGroup",
         path = "/group/{name}",
+        summary = "Create a new group",
+        description = """
+            Create an empty group for the user and return the group id
+        """,
+        methods = [HttpMethod.POST],
+        pathParams = [OpenApiParam("name", String::class, "Name of the group")],
+        security = [OpenApiSecurity("Bearer")],
+        responses = [
+            OpenApiResponse("401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]),
+            OpenApiResponse("200", [OpenApiContent(Int::class, "Group id")])
+        ]
     )
     private fun createGroup(ctx: Context) {
         JavalinJWT.getTokenFromHeader(ctx).flatMap(idProvider::validateToken)
@@ -365,6 +376,9 @@ class App(
                     post(::login)
                     get("{token}", ::verify)
                 }
+            }
+            path("group") {
+                post("{name}", ::createGroup)
             }
         }
     }
