@@ -3,9 +3,10 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.github.cdimascio.dotenv.dotenv
 import io.github.costsplit.api.DefaultApi
-import io.github.costsplit.app.App
-import io.github.costsplit.api.model.CreateUser
 import io.github.costsplit.api.invoker.ApiClient
+import io.github.costsplit.api.model.CreateUser
+import io.github.costsplit.api.model.Login
+import io.github.costsplit.app.App
 import org.jetbrains.exposed.sql.Database
 
 fun main() {
@@ -17,8 +18,7 @@ fun main() {
             username = dt["CS_DB_USER"]
             password = dt["CS_DB_PASSWORD"]
             driverClassName = dt["CS_DB_DRIVER"]
-        }
-    )
+        })
     val dumbster = SimpleSmtpServer.start(dt["CS_SMTP_PORT"].toInt())
 
     val app = App(
@@ -38,27 +38,42 @@ fun main() {
         setPort(dt["CS_PORT"].toInt())
     })
 
-    api.createUser(CreateUser().apply {
+    val verifiedUser = CreateUser().apply {
         name = "John"
         email = "john@test.net"
         password = "JohnPass@1"
-    })
+    }
+
+    api.createUser(verifiedUser)
     val mail = dumbster.receivedEmails.first().body
     val tok = "https://.+/verify/(\\S+)".toRegex().find(mail)!!.groupValues[1]
-    val verifiedTok = api.verifyUser(tok)
+    api.verifyUser(tok)
+    val verifiedToken = api.loginUser(Login().apply {
+        email = verifiedUser.email
+        password = verifiedUser.password
+    }).token
 
-    val unverifiedTok = api.createUser(CreateUser().apply {
+    val unverifiedUser = CreateUser().apply {
         name = "unverified"
         email = "unverified@test.net"
         password = "Unverified@1"
-    })
+    }
+    val unverifiedTok = api.createUser(unverifiedUser).token
 
     println(
         """
-            Token for verified user: $verifiedTok
-            Token for unverified user: $unverifiedTok
+        Token for verified user: $verifiedToken
+        Data of verified user:
         """.trimIndent()
     )
+    println(verifiedUser)
+    println(
+        """
+        Token for unverified user: $unverifiedTok
+        Data of unverified user:
+        """.trimIndent()
+    )
+    println(unverifiedUser)
 
     Runtime.getRuntime().addShutdownHook(Thread {
         app.close()

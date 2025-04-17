@@ -2,6 +2,7 @@ package io.github.costsplit.app
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.auth0.jwt.interfaces.DecodedJWT
 import io.javalin.Javalin
 import io.javalin.apibuilder.ApiBuilder.*
 import io.javalin.http.*
@@ -14,7 +15,6 @@ import org.apache.commons.mail.DefaultAuthenticator
 import org.apache.commons.mail.EmailException
 import org.apache.commons.mail.SimpleEmail
 import org.jetbrains.exposed.dao.id.IntIdTable
-import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.security.SecureRandom
@@ -22,7 +22,23 @@ import java.time.Duration
 import java.time.Instant
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
+import kotlin.jvm.optionals.getOrElse
+import kotlin.jvm.optionals.getOrNull
 import kotlin.time.Duration.Companion.seconds
+
+internal data class AddPurchase(
+    val groupId: Int,
+    val description: String,
+    val cost: ULong,
+    val payments: Map<Int, Long>,
+)
+
+internal data class UserData(
+    val id: Int,
+    val name: String,
+    val email: String,
+    val token: String,
+)
 
 private data class UserToken(
     val id: Int,
@@ -46,13 +62,22 @@ private object User : IntIdTable("user") {
 }
 
 private object Group : IntIdTable("group") {
-    val name = varchar("name", 254)
+    val name = varchar("name", 256)
 }
 
-private data class GroupResponse(
-    val id: Int,
-    val name: String,
-)
+private object GroupUser : Table("group-user") {
+    val group = reference("group", Group.id)
+    val user = reference("user", User.id)
+    override val primaryKey = PrimaryKey(group, user)
+}
+
+private object Purchase : IntIdTable("purchase") {
+    val group = reference("group", Group.id)
+    val cost = ulong("cost")
+    val description = varchar("description", 128)
+}
+
+private object Payment : IntIdTable("payment")
 
 private data class JsonErrorResponse(
     val title: String,
@@ -72,18 +97,24 @@ internal data class Login(
     val password: String,
 )
 
+private val DecodedJWT.verified: Boolean
+    get() = this["verified"]
+
+private inline operator fun <reified T> DecodedJWT.get(name: String): T {
+    return getClaim(name).`as`(T::class.java)
+}
+
 private val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\$".toRegex()
 private fun String.isValidEmail(): Boolean = matches(emailRegex) && length <= 254
-private fun String.validatePassword(): String? =
-    when {
-        length < 8 -> "Password must be at least 8 characters long"
-        any { it.isWhitespace() } -> "Password mustn't contain whitespace"
-        !any { it.isDigit() } -> "Password must contain at least one digit"
-        !any { it.isUpperCase() } -> "Password must contain at least one uppercase character"
-        !any { it.isLowerCase() } -> "Password must contain at least one lowercase character"
-        all { it.isLetterOrDigit() } -> "Password must contain at least one special character, such as: _%-=+#@"
-        else -> null
-    }
+private fun String.validatePassword(): String? = when {
+    length < 8 -> "Password must be at least 8 characters long"
+    any { it.isWhitespace() } -> "Password mustn't contain whitespace"
+    !any { it.isDigit() } -> "Password must contain at least one digit"
+    !any { it.isUpperCase() } -> "Password must contain at least one uppercase character"
+    !any { it.isLowerCase() } -> "Password must contain at least one lowercase character"
+    all { it.isLetterOrDigit() } -> "Password must contain at least one special character, such as: _%-=+#@"
+    else -> null
+}
 
 class App(
     internal val host: String = "localhost",
@@ -103,18 +134,12 @@ class App(
         val algorithm = Algorithm.HMAC256(secret)
         val verifier = JWT.require(algorithm).build()
         authProvider = JWTProvider(algorithm, { id, alg ->
-            JWT.create()
-                .withJWTId("auth")
-                .withClaim("id", id)
-                .withExpiresAt(Instant.now() + Duration.ofMinutes(30))
+            JWT.create().withJWTId("auth").withClaim("id", id).withExpiresAt(Instant.now() + Duration.ofMinutes(30))
                 .sign(alg)
         }, verifier)
         idProvider = JWTProvider(algorithm, { user, alg ->
-            JWT.create()
-                .withJWTId(user.emitter)
-                .withClaim("id", user.id)
-                .withClaim("verified", user.verified)
-                .sign(alg)
+            JWT.create().withJWTId(user.emitter).withClaim("id", user.id).withClaim("verified", user.verified)
+                .withExpiresAt(Instant.now() + Duration.ofDays(14)).sign(alg)
         }, verifier)
         require(saltSecret.size == 16)
     }
@@ -174,23 +199,21 @@ class App(
         requestBody = OpenApiRequestBody([OpenApiContent(CreateUser::class)]),
         responses = [
             OpenApiResponse("400", [OpenApiContent(JsonErrorResponse::class), OpenApiContent(String::class)]),
-            OpenApiResponse("200", [OpenApiContent(String::class)], "JWT for authenticating in future requests"),
+            OpenApiResponse(
+                "200", [OpenApiContent(UserData::class)], "User data and JWT for authenticating in future requests"
+            ),
         ],
     )
     private fun createUser(ctx: Context) {
         val body = ctx.bodyAsClass<CreateUser>()
-        if (!body.email.isValidEmail())
-            throw BadRequestResponse("Invalid email")
+        if (!body.email.isValidEmail()) throw BadRequestResponse("Invalid email")
         body.password.validatePassword()?.let { throw BadRequestResponse(it) }
-        if (body.name.isEmpty())
-            throw BadRequestResponse("Empty username")
-        if (body.name.length > 64)
-            throw BadRequestResponse("Name is too long")
+        if (body.name.isEmpty()) throw BadRequestResponse("Empty username")
+        if (body.name.length >= 64) throw BadRequestResponse("Name is too long")
 
         val id = transaction(database) {
             val usr = User.select(User.verified, User.id).where { User.email eq body.email }.firstOrNull()
-            if (usr?.get(User.verified) == true)
-                throw BadRequestResponse("Email already in use")
+            if (usr?.get(User.verified) == true) throw BadRequestResponse("Email already in use")
             val salt = nextSalt()
             val hash = hashPassword(body.password, salt)
             if (usr == null) {
@@ -201,7 +224,7 @@ class App(
                     it[User.hash] = hash
                 }
             } else {
-                User.update({User.id eq usr[User.id]}) {
+                User.update({ User.id eq usr[User.id] }) {
                     it[name] = body.name
                     it[User.salt] = salt
                     it[User.hash] = hash
@@ -216,14 +239,16 @@ class App(
                         We are sending you this message so you can confirm the creation of your account.
                         In order to verify please follow this link:
                         https://$host:${app.port()}/auth/verify/${authProvider.generateToken(id.value)}
-                    """.trimIndent()
+                    """.trimIndent().replace("\n", "\r\n")
         )
-        ctx.result(
-            idProvider.generateToken(
-                UserToken(
-                    id = id.value,
-                    verified = false,
-                    emitter = "create",
+        ctx.json(
+            UserData(
+                id = id.value, name = body.name, email = body.email, token = idProvider.generateToken(
+                    UserToken(
+                        id = id.value,
+                        verified = false,
+                        emitter = "create",
+                    )
                 )
             )
         )
@@ -240,35 +265,35 @@ class App(
         requestBody = OpenApiRequestBody([OpenApiContent(Login::class)]),
         responses = [
             OpenApiResponse("401", [OpenApiContent(JsonErrorResponse::class), OpenApiContent(String::class)]),
-            OpenApiResponse("200", [OpenApiContent(String::class)], "JWT for authenticating in future requests"),
+            OpenApiResponse(
+                "200", [OpenApiContent(UserData::class)], "User data and JWT for authenticating in future requests"
+            ),
         ],
     )
     private fun login(ctx: Context) {
         val body = ctx.bodyAsClass<Login>()
-        val user =
-            try {
-                transaction(database) {
-                    with(User) {
-                        select(id, salt, hash, verified).where { email eq body.email }.single()
-                    }
-                }
-            } catch (e: ExposedSQLException) {
-                throw UnauthorizedResponse("Invalid password or email")
+        val user = transaction(database) {
+            with(User) {
+                select(id, name, salt, hash, verified).where { email eq body.email }.singleOrNull()
             }
+        } ?: throw UnauthorizedResponse("Invalid password or email")
         val hash = hashPassword(body.password, user[User.salt])
-        if (!hash.contentEquals(user[User.hash])) {
-            throw UnauthorizedResponse("Invalid password or email")
-        }
-        ctx.result(
-            idProvider.generateToken(
-                UserToken(
-                    id = user[User.id].value,
-                    emitter = "verify",
-                    verified = user[User.verified],
+        if (!hash.contentEquals(user[User.hash])) throw UnauthorizedResponse("Invalid password or email")
+        ctx.json(
+            UserData(
+                id = user[User.id].value, name = user[User.name], email = body.email, token = idProvider.generateToken(
+                    UserToken(
+                        id = user[User.id].value,
+                        emitter = "verify",
+                        verified = user[User.verified],
+                    )
                 )
             )
         )
     }
+
+    private fun Context.getToken(): DecodedJWT? =
+        JavalinJWT.getTokenFromHeader(this).flatMap(idProvider::validateToken).getOrNull()
 
     @OpenApi(
         operationId = "verifyUser",
@@ -289,23 +314,16 @@ class App(
     )
     private fun verify(ctx: Context) {
         val supportsHtml = ctx.header("Accept")?.contains("text/html") ?: false
-        ctx.pathParam("token").let { authProvider.validateToken(it) }
-            .ifPresentOrElse(
-                { token ->
-                    transaction(database) {
-                        User.update({ User.id eq token.getClaim("id").asInt() }) {
-                            it[verified] = true
-                        }
-                    }
-                    if (supportsHtml)
-                        ctx.html("<h1>Account confirmed</h1>")
-                },
-                {
-                    if (supportsHtml)
-                        ctx.html("<h1>Couldn't confirm account</h1>")
-                    throw BadRequestResponse("Invalid/missing token")
-                },
-            )
+        val jwt = ctx.pathParam("token").let(authProvider::validateToken).getOrElse {
+            if (supportsHtml) ctx.html("<h1>Couldn't confirm account</h1>")
+            throw BadRequestResponse("Invalid/Missing token")
+        }
+        transaction(database) {
+            User.update({ User.id eq jwt.get<Int>("id") }) {
+                it[verified] = true
+            }
+        }
+        if (supportsHtml) ctx.html("<h1>Account confirmed</h1>")
     }
 
     @OpenApi(
@@ -318,36 +336,65 @@ class App(
         methods = [HttpMethod.POST],
         pathParams = [OpenApiParam("name", String::class, "Name of the group")],
         security = [OpenApiSecurity("Bearer")],
-        responses = [
-            OpenApiResponse("401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]),
-            OpenApiResponse("200", [OpenApiContent(Int::class, "Group id")])
-        ]
+        responses = [OpenApiResponse(
+            "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse("200", [OpenApiContent(Int::class, "Group id")])]
     )
     private fun createGroup(ctx: Context) {
-        JavalinJWT.getTokenFromHeader(ctx).flatMap(idProvider::validateToken)
-            .ifPresentOrElse(
-                { token ->
-                    val groupName = ctx.pathParam("name")
-                    if (!token.getClaim("verified").asBoolean())
-                        throw UnauthorizedResponse("User must be verified")
-                    val id = transaction(database) {
-                        Group.insertAndGetId {
-                            it[name] = groupName
-                        }
-                    }
-                    ctx.json(id)
-                },
-                {
-                    throw UnauthorizedResponse("Invalid/missing token")
-                }
-            )
+        val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
+        if (!jwt.verified) throw UnauthorizedResponse("User must be verified")
+        val groupName = ctx.pathParam("name")
+        if (groupName.length > 256) throw BadRequestResponse("Group name is too long, limit is 256 bytes")
+        val id = transaction(database) {
+            val groupId = Group.insertAndGetId {
+                it[name] = groupName
+            }
+            GroupUser.insert {
+                it[group] = groupId
+                it[user] = jwt.get<Int>("id")
+            }
+            groupId
+        }
+        ctx.json(id.value)
+    }
+
+    @OpenApi(
+        operationId = "createPurchase",
+        path = "/purchase",
+        summary = "Create a purchase",
+        description = """
+            Store a purchase and how it's supposed to be paid.
+            The user must be a member of the provided group.
+        """,
+        methods = [HttpMethod.POST],
+        requestBody = OpenApiRequestBody([OpenApiContent(AddPurchase::class)]),
+        security = [OpenApiSecurity("Bearer")],
+        responses = [OpenApiResponse(
+            "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse("200", [OpenApiContent(Int::class, "Purchase id")])]
+    )
+    private fun createPurchase(ctx: Context) {
+        val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
+        if (!jwt.verified) throw UnauthorizedResponse("User must be verified")
+        val body: AddPurchase = ctx.bodyAsClass()
+        val id = transaction(database) {
+            val exists = !GroupUser.selectAll()
+                .where { (GroupUser.group eq body.groupId) and (GroupUser.user eq jwt.get<Int>("id")) }.empty()
+            if (!exists) throw NotFoundResponse("Group not found")
+            Purchase.insertAndGetId {
+                it[group] = body.groupId
+                it[cost] = body.cost
+                it[description] = body.description
+            }
+        }
+        ctx.json(id.value)
     }
 
     internal val app = Javalin.create { config ->
         config.jetty.defaultPort = port
         config.events.serverStarting {
             transaction(database) {
-                SchemaUtils.create(User)
+                SchemaUtils.create(User, Group, Purchase, GroupUser)
             }
         }
         config.jetty.modifyServer { server ->
@@ -359,7 +406,7 @@ class App(
                     info.title = "COSTSPLIT API"
                 }
                 definition.withSecurity {
-                    it.withGlobalSecurity(Security("Bearer"))
+                    it.withBearerAuth("Bearer") { BearerAuth() }
                 }
             }
             openApiConfig.withDocumentationPath("/openapi.json")
@@ -379,6 +426,9 @@ class App(
             }
             path("group") {
                 post("{name}", ::createGroup)
+            }
+            path("purchase") {
+                post(::createPurchase)
             }
         }
     }
