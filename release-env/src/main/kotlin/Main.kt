@@ -30,7 +30,7 @@ fun main() {
         })
 
     val app = App(
-        port = 80,
+        port = System.getenv("PORT")?.toInt() ?: 8080,
         senderMail = System.getenv("CS_SENDER_MAIL"),
         senderPassword = accessSecret(projectId, "smtp-pass"),
         secret = accessSecret(projectId, "main-secret"),

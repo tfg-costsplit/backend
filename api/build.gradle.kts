@@ -6,6 +6,7 @@ plugins {
     id("buildlogic.java-conventions")
     id("org.openapi.generator") version "7.12.0"
     java
+    `maven-publish`
 }
 
 sourceSets {
@@ -36,6 +37,18 @@ val jacksonVersion = "2.17.1"
 val jakartaAnnotationVersion = "1.3.5"
 val beanValidationVersion = "2.0.2"
 val junitVersion = "5.10.2"
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            groupId = "io.github.costsplit"
+            artifactId = "api"
+            version = "0-SNAPSHOT"
+
+            from(components["java"])
+        }
+    }
+}
 
 dependencies {
     implementation("com.google.code.findbugs:jsr305:3.0.2")

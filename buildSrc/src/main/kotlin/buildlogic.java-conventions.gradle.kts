@@ -19,12 +19,6 @@ group = "io.github.costsplit"
 version = "1.0-SNAPSHOT"
 java.sourceCompatibility = JavaVersion.VERSION_21
 
-publishing {
-    publications.create<MavenPublication>("maven") {
-        from(components["java"])
-    }
-}
-
 tasks.withType<JavaCompile>() {
     options.encoding = "UTF-8"
 }
