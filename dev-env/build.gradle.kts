@@ -28,5 +28,5 @@ kotlin {
     jvmToolchain(21)
 }
 application {
-    mainClass = "MainKt"
+    mainClass = "io.github.costsplit.dev.backend.MainKt"
 }

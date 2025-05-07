@@ -36,3 +36,8 @@ repositories {
 tasks.test {
     useJUnitPlatform()
 }
+
+kapt {
+    java.targetCompatibility = JavaVersion.VERSION_21
+    kotlin.jvmToolchain(21)
+}

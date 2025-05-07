@@ -1,3 +1,5 @@
+package io.github.costsplit.dev.backend
+
 import com.dumbster.smtp.SimpleSmtpServer
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource

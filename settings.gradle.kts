@@ -2,6 +2,18 @@ pluginManagement {
     plugins {
         kotlin("jvm") version "2.1.20"
     }
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        // add mavenLocal() if you are using a locally built version of the plugin
+    }
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id.startsWith("com.google.cloud.tools.appengine")) {
+                useModule("com.google.cloud.tools:appengine-gradle-plugin:${requested.version}")
+            }
+        }
+    }
 }
 plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
@@ -14,3 +26,4 @@ rootProject.name = "costsplit-backend"
 include(":app")
 include(":dev-env")
 include(":api")
+include(":release-env")
