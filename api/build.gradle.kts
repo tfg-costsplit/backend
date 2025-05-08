@@ -43,7 +43,7 @@ publishing {
         create<MavenPublication>("maven") {
             groupId = "io.github.costsplit"
             artifactId = "api"
-            version = "0-SNAPSHOT"
+            version = "0.1-SNAPSHOT"
 
             from(components["java"])
         }

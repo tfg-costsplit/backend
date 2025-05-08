@@ -76,7 +76,6 @@ fun main() {
         """.trimIndent()
     )
     println(unverifiedUser)
-
     Runtime.getRuntime().addShutdownHook(Thread {
         app.close()
         dataSource.close()
