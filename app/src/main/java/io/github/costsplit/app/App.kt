@@ -372,7 +372,7 @@ class App(
             "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
         ), OpenApiResponse(
             "400", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
-        ), OpenApiResponse("200", [OpenApiContent(Int::class, "Group id")])]
+        ), OpenApiResponse("200", [OpenApiContent(Int::class)], "Group id")]
     )
     private fun createGroup(ctx: Context) {
         val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
@@ -409,7 +409,7 @@ class App(
             "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
         ), OpenApiResponse(
             "404", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
-        ), OpenApiResponse("200", [OpenApiContent(Int::class, "Purchase id")])]
+        ), OpenApiResponse("200", [OpenApiContent(Int::class)], "Purchase id")]
     )
     private fun createPurchase(ctx: Context) {
         val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
@@ -453,7 +453,7 @@ class App(
             "400", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
         ), OpenApiResponse(
             "404", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
-        ), OpenApiResponse("200", [OpenApiContent(GroupData::class, "Group data")])]
+        ), OpenApiResponse("200", [OpenApiContent(GroupData::class)], "Group data")]
     )
     private fun getGroupData(ctx: Context) {
         val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
@@ -493,7 +493,7 @@ class App(
             "400", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
         ), OpenApiResponse(
             "404", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
-        ), OpenApiResponse("200", [OpenApiContent(AllGroupData::class, "Group data")])]
+        ), OpenApiResponse("200", [OpenApiContent(AllGroupData::class)], "Group data")]
     )
     private fun getAllGroupData(ctx: Context) {
         val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
@@ -581,7 +581,7 @@ class App(
             "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
         ), OpenApiResponse(
             "400", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
-        ), OpenApiResponse("200", [OpenApiContent(String::class, "Invite token")])]
+        ), OpenApiResponse("200", [OpenApiContent(String::class)], "Invite token")]
     )
     private fun getGroupInvite(ctx: Context) {
         val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/missing token")
@@ -592,7 +592,7 @@ class App(
         }
         if (!isMember) throw NotFoundResponse("Group not found")
         val token = inviteProvider.generateToken(Invite(gid, uid))
-        ctx.json("\"$token\"")
+        ctx.result(token)
     }
 
     internal val app = Javalin.create { config ->

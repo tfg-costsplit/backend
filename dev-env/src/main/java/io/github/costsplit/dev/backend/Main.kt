@@ -42,10 +42,10 @@ fun main() {
         dumbster.close()
     })
 
-    val api = DefaultApi(ApiClient().apply {
-        setHost(dt["CS_HOST"])
-        setPort(dt["CS_PORT"].toInt())
-    })
+    val client = ApiClient()
+        .setHost(dt["CS_HOST"])
+        .setPort(dt["CS_PORT"].toInt())
+    val api = DefaultApi(client)
 
     val verifiedUser = CreateUser().apply {
         name = "John"
@@ -61,6 +61,13 @@ fun main() {
         email = verifiedUser.email
         password = verifiedUser.password
     }).token
+
+
+    val api2 = DefaultApi(client.setRequestInterceptor { it.header("Authorization", "Bearer $verifiedToken")})
+    val grp = api2.createGroup("Hello")
+    val inv = api2.getGroupInvite(grp)
+
+    dumbster.reset()
 
     val unverifiedUser = CreateUser().apply {
         name = "unverified"
@@ -83,11 +90,12 @@ fun main() {
         """.trimIndent()
     )
     println(unverifiedUser)
-    generateSequence(dumbster.receivedEmails.size) {
-        while (it == dumbster.receivedEmails.size)
-            Thread.sleep(1000)
-        it + 1
-    }.map { dumbster.receivedEmails[it - 1].body}
+
+    generateSequence(dumbster.receivedEmails.asSequence()) {
+        dumbster.reset()
+        Thread.sleep(1000)
+        dumbster.receivedEmails.asSequence()
+    }.flatten()
         .forEach {
             println("NEW MAIL: $it")
         }

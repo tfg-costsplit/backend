@@ -165,9 +165,9 @@
         } ],
         "responses" : {
           "200" : {
-            "description" : "OK",
+            "description" : "Group data",
             "content" : {
-              "Group data" : {
+              "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/AllGroupData"
                 }
@@ -246,9 +246,9 @@
         } ],
         "responses" : {
           "200" : {
-            "description" : "OK",
+            "description" : "Invite token",
             "content" : {
-              "Invite token" : {
+              "text/plain" : {
                 "schema" : {
                   "type" : "string"
                 }
@@ -370,9 +370,9 @@
         } ],
         "responses" : {
           "200" : {
-            "description" : "OK",
+            "description" : "Group data",
             "content" : {
-              "Group data" : {
+              "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/GroupData"
                 }
@@ -450,9 +450,9 @@
         } ],
         "responses" : {
           "200" : {
-            "description" : "OK",
+            "description" : "Group id",
             "content" : {
-              "Group id" : {
+              "application/json" : {
                 "schema" : {
                   "type" : "integer",
                   "format" : "int32"
@@ -516,9 +516,9 @@
         },
         "responses" : {
           "200" : {
-            "description" : "OK",
+            "description" : "Purchase id",
             "content" : {
-              "Purchase id" : {
+              "application/json" : {
                 "schema" : {
                   "type" : "integer",
                   "format" : "int32"
