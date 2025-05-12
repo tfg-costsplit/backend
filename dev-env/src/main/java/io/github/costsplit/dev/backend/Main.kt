@@ -62,11 +62,6 @@ fun main() {
         password = verifiedUser.password
     }).token
 
-
-    val api2 = DefaultApi(client.setRequestInterceptor { it.header("Authorization", "Bearer $verifiedToken")})
-    val grp = api2.createGroup("Hello")
-    val inv = api2.getGroupInvite(grp)
-
     dumbster.reset()
 
     val unverifiedUser = CreateUser().apply {
@@ -97,6 +92,6 @@ fun main() {
         dumbster.receivedEmails.asSequence()
     }.flatten()
         .forEach {
-            println("NEW MAIL: $it")
+            println(it)
         }
 }
