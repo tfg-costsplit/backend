@@ -42,9 +42,7 @@ fun main() {
         dumbster.close()
     })
 
-    val client = ApiClient()
-        .setHost(dt["CS_HOST"])
-        .setPort(dt["CS_PORT"].toInt())
+    val client = ApiClient().setHost(dt["CS_HOST"]).setPort(dt["CS_PORT"].toInt())
     val api = DefaultApi(client)
 
     val verifiedUser = CreateUser().apply {
@@ -90,8 +88,7 @@ fun main() {
         dumbster.reset()
         Thread.sleep(1000)
         dumbster.receivedEmails.asSequence()
-    }.flatten()
-        .forEach {
+    }.flatten().forEach {
             println(it)
         }
 }

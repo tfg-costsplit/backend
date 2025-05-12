@@ -302,7 +302,8 @@ class AppTest {
     @Test
     fun `GET to acquire group invite url works`() = test { server, client ->
         val data: UserData = testUser.login(server.port(), client).assertCode(200).parse()
-        val data2: UserData = testUser.copy(email = "testuser2@mail.com").login(server.port(), client).assertCode(200).parse()
+        val data2: UserData =
+            testUser.copy(email = "testuser2@mail.com").login(server.port(), client).assertCode(200).parse()
         val gid: Int = client.post("/group/testGroup") { it.jwt(data.token) }.assertCode(200).parse()
         val token: String = client.get("/group-invite/$gid") { it.jwt(data.token) }.assertCode(200).body!!.string()
         client.post("/group-join/$token") { it.jwt(data2.token) }.assertCode(200)

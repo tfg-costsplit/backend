@@ -341,7 +341,8 @@ class App(
         responses = [
             OpenApiResponse(
                 "400", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
-            ), OpenApiResponse("200", [OpenApiContent(mimeType = "text/html")], "Account confirmation response"),
+            ),
+            OpenApiResponse("200", [OpenApiContent(mimeType = "text/html")], "Account confirmation response"),
         ],
     )
     private fun verify(ctx: Context) {
@@ -505,10 +506,9 @@ class App(
                 ?: throw NotFoundResponse("Group not found")
             val name = Group.select(Group.name).where { Group.id eq group[GroupUser.groupId] }.single()[Group.name]
             val payments = Payment.select(Payment.user, Payment.paid, Payment.purchase).where {
-                    exists(
-                        Purchase.selectAll()
-                            .where { (Purchase.group eq groupId) and (Purchase.id eq Payment.purchase) })
-                }.map { it[Payment.purchase].value to (it[Payment.user].value to it[Payment.paid]) }
+                exists(
+                    Purchase.selectAll().where { (Purchase.group eq groupId) and (Purchase.id eq Payment.purchase) })
+            }.map { it[Payment.purchase].value to (it[Payment.user].value to it[Payment.paid]) }
                 .groupBy({ it.first }, { it.second }).mapValues { it.value.toMap() }
             val purchases = Purchase.select(Purchase.id, Purchase.description, Purchase.cost, Purchase.payer)
                 .where { Purchase.group eq groupId }.map {
