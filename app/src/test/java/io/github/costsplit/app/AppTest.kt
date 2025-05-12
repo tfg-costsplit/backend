@@ -35,7 +35,7 @@ class AppTest {
         dumbster = SimpleSmtpServer.start(SimpleSmtpServer.AUTO_SMTP_PORT)
         dataSource = HikariDataSource(
             HikariConfig().apply {
-                jdbcUrl = "jdbc:h2:mem:test"
+                jdbcUrl = "jdbc:h2:mem:test;MODE=PostgreSQL"
                 driverClassName = Driver::class.qualifiedName
             })
         app = App(
@@ -191,7 +191,7 @@ class AppTest {
         client.post(
             "/purchase", AddPurchase(
                 groupId = groupId, cost = 100UL, description = "empty", payments = mapOf(
-                    userData.id to 100
+                    userData.id to 100UL
                 )
             )
         ) {
@@ -272,5 +272,39 @@ class AppTest {
                 groupId = groupId, cost = 0UL, description = "", payments = mapOf()
             )
         ) { it.jwt(data.token) }.assertCode(200)
+    }
+
+    @Test
+    fun `GET to request group data contains purchases`() = test { server, client ->
+        val data: UserData = testUser.login(server.port(), client).assertCode(200).parse()
+        val gid: Int = client.post("/group/testGroup") { it.jwt(data.token) }.assertCode(200).parse()
+        val pid: Int = client.post(
+            "/purchase", AddPurchase(
+                groupId = gid, cost = 0UL, description = "", payments = mapOf()
+            )
+        ) { it.jwt(data.token) }.assertCode(200).parse()
+        val gdata: GroupData = client.get("/group/$gid") { it.jwt(data.token) }.assertCode(200).parse()
+        assertThat(gdata.purchases).contains(pid)
+        val allData: AllGroupData = client.get("/group-data/$gid") {
+            it.jwt(data.token)
+        }.assertCode(200).parse()
+        assertThat(allData.purchases).contains(
+            PurchaseData(
+                id = pid,
+                payer = data.id,
+                cost = 0UL,
+                description = "",
+                payments = mapOf(),
+            )
+        )
+    }
+
+    @Test
+    fun `GET to acquire group invite url works`() = test { server, client ->
+        val data: UserData = testUser.login(server.port(), client).assertCode(200).parse()
+        val data2: UserData = testUser.copy(email = "testuser2@mail.com").login(server.port(), client).assertCode(200).parse()
+        val gid: Int = client.post("/group/testGroup") { it.jwt(data.token) }.assertCode(200).parse()
+        val token: String = client.get("/group-invite/$gid") { it.jwt(data.token) }.assertCode(200).parse()
+        client.post("/group-join/$token") { it.jwt(data2.token) }.assertCode(200)
     }
 }

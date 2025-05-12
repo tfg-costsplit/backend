@@ -35,6 +35,13 @@ fun main() {
         database = Database.connect(datasource = dataSource)
     )
     app.start()
+
+    Runtime.getRuntime().addShutdownHook(Thread {
+        app.close()
+        dataSource.close()
+        dumbster.close()
+    })
+
     val api = DefaultApi(ApiClient().apply {
         setHost(dt["CS_HOST"])
         setPort(dt["CS_PORT"].toInt())
@@ -76,9 +83,12 @@ fun main() {
         """.trimIndent()
     )
     println(unverifiedUser)
-    Runtime.getRuntime().addShutdownHook(Thread {
-        app.close()
-        dataSource.close()
-        dumbster.close()
-    })
+    generateSequence(dumbster.receivedEmails.size) {
+        while (it == dumbster.receivedEmails.size)
+            Thread.sleep(1000)
+        it + 1
+    }.map { dumbster.receivedEmails[it - 1].body}
+        .forEach {
+            println("NEW MAIL: $it")
+        }
 }

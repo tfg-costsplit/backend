@@ -30,7 +30,7 @@ internal data class AddPurchase(
     val groupId: Int,
     val description: String,
     val cost: ULong,
-    val payments: Map<Int, Long>,
+    val payments: Map<Int, ULong>,
 )
 
 internal data class UserData(
@@ -40,10 +40,33 @@ internal data class UserData(
     val token: String,
 )
 
+internal data class GroupData(
+    val id: Int,
+    val name: String,
+    val purchases: List<Int>,
+)
+
+internal data class AllGroupData(
+    val id: Int, val name: String, val purchases: List<PurchaseData>
+)
+
+internal data class PurchaseData(
+    val id: Int,
+    val cost: ULong,
+    val payer: Int,
+    val description: String,
+    val payments: Map<Int, ULong>,
+)
+
 private data class UserToken(
     val id: Int,
     val verified: Boolean,
     val emitter: String,
+)
+
+private data class Invite(
+    val groupId: Int,
+    val emitter: Int,
 )
 
 private fun nextSalt(): ByteArray {
@@ -62,22 +85,28 @@ private object User : IntIdTable("user") {
 }
 
 private object Group : IntIdTable("group") {
+    val user = reference("user", User.id)
     val name = varchar("name", 256)
 }
 
 private object GroupUser : Table("group-user") {
-    val group = reference("group", Group.id)
+    val groupId = reference("group", Group.id)
     val user = reference("user", User.id)
-    override val primaryKey = PrimaryKey(group, user)
+    override val primaryKey = PrimaryKey(groupId, user)
 }
 
 private object Purchase : IntIdTable("purchase") {
     val group = reference("group", Group.id)
+    val payer = reference("payer", User.id)
     val cost = ulong("cost")
     val description = varchar("description", 128)
 }
 
-private object Payment : IntIdTable("payment")
+private object Payment : IntIdTable("payment") {
+    val user = reference("user", User.id)
+    val purchase = reference("purchase", Purchase.id)
+    val paid = ulong("paid")
+}
 
 private data class JsonErrorResponse(
     val title: String,
@@ -129,8 +158,10 @@ class App(
 ) : AutoCloseable {
     private val idProvider: JWTProvider<UserToken>
     private val authProvider: JWTProvider<Int>
+    private val inviteProvider: JWTProvider<Invite>
 
     init {
+        require(saltSecret.size == 16)
         val algorithm = Algorithm.HMAC256(secret)
         val verifier = JWT.require(algorithm).build()
         authProvider = JWTProvider(algorithm, { id, alg ->
@@ -138,10 +169,13 @@ class App(
                 .sign(alg)
         }, verifier)
         idProvider = JWTProvider(algorithm, { user, alg ->
-            JWT.create().withJWTId(user.emitter).withClaim("id", user.id).withClaim("verified", user.verified)
+            JWT.create().withJWTId("id").withClaim("id", user.id).withClaim("verified", user.verified)
                 .withExpiresAt(Instant.now() + Duration.ofDays(14)).sign(alg)
         }, verifier)
-        require(saltSecret.size == 16)
+        inviteProvider = JWTProvider(algorithm, { invite, alg ->
+            JWT.create().withJWTId("invite").withClaim("group", invite.groupId).withClaim("emitter", invite.emitter)
+                .withExpiresAt(Instant.now() + Duration.ofDays(7)).sign(alg)
+        }, verifier)
     }
 
     private fun hashPassword(password: String, salt: ByteArray): ByteArray {
@@ -239,7 +273,7 @@ class App(
                         We are sending you this message so you can confirm the creation of your account.
                         In order to verify please follow this link:
                         https://$host:${app.port()}/auth/verify/${authProvider.generateToken(id.value)}
-                    """.trimIndent().replace("\n", "\r\n")
+                    """.trimIndent()
         )
         ctx.json(
             UserData(
@@ -293,7 +327,7 @@ class App(
     }
 
     private fun Context.getToken(): DecodedJWT? =
-        JavalinJWT.getTokenFromHeader(this).flatMap(idProvider::validateToken).getOrNull()
+        JavalinJWT.getTokenFromHeader(this).flatMap(idProvider::validateToken).filter { it.id == "id" }.getOrNull()
 
     @OpenApi(
         operationId = "verifyUser",
@@ -306,15 +340,13 @@ class App(
         pathParams = [OpenApiParam("token", String::class, "Auth JWT")],
         responses = [
             OpenApiResponse(
-                "403",
-                [OpenApiContent(JsonErrorResponse::class), OpenApiContent(String::class), OpenApiContent(mimeType = "text/html")]
-            ),
-            OpenApiResponse("200", [OpenApiContent(mimeType = "text/html")], "Account confirmation response"),
+                "400", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+            ), OpenApiResponse("200", [OpenApiContent(mimeType = "text/html")], "Account confirmation response"),
         ],
     )
     private fun verify(ctx: Context) {
         val supportsHtml = ctx.header("Accept")?.contains("text/html") ?: false
-        val jwt = ctx.pathParam("token").let(authProvider::validateToken).getOrElse {
+        val jwt = ctx.pathParam("token").let(authProvider::validateToken).filter { it.id == "auth" }.getOrElse {
             if (supportsHtml) ctx.html("<h1>Couldn't confirm account</h1>")
             throw BadRequestResponse("Invalid/Missing token")
         }
@@ -335,9 +367,11 @@ class App(
         """,
         methods = [HttpMethod.POST],
         pathParams = [OpenApiParam("name", String::class, "Name of the group")],
-        security = [OpenApiSecurity("Bearer")],
+        security = [OpenApiSecurity("BearerAuth")],
         responses = [OpenApiResponse(
             "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse(
+            "400", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
         ), OpenApiResponse("200", [OpenApiContent(Int::class, "Group id")])]
     )
     private fun createGroup(ctx: Context) {
@@ -345,17 +379,19 @@ class App(
         if (!jwt.verified) throw UnauthorizedResponse("User must be verified")
         val groupName = ctx.pathParam("name")
         if (groupName.length > 256) throw BadRequestResponse("Group name is too long, limit is 256 bytes")
+        val userId: Int = jwt["id"]
         val id = transaction(database) {
-            val groupId = Group.insertAndGetId {
+            val id = Group.insertAndGetId {
                 it[name] = groupName
-            }
+                it[user] = userId
+            }.value
             GroupUser.insert {
-                it[group] = groupId
-                it[user] = jwt.get<Int>("id")
+                it[groupId] = id
+                it[user] = userId
             }
-            groupId
+            id
         }
-        ctx.json(id.value)
+        ctx.json(id)
     }
 
     @OpenApi(
@@ -368,33 +404,202 @@ class App(
         """,
         methods = [HttpMethod.POST],
         requestBody = OpenApiRequestBody([OpenApiContent(AddPurchase::class)]),
-        security = [OpenApiSecurity("Bearer")],
+        security = [OpenApiSecurity("BearerAuth")],
         responses = [OpenApiResponse(
             "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse(
+            "404", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
         ), OpenApiResponse("200", [OpenApiContent(Int::class, "Purchase id")])]
     )
     private fun createPurchase(ctx: Context) {
         val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
         if (!jwt.verified) throw UnauthorizedResponse("User must be verified")
         val body: AddPurchase = ctx.bodyAsClass()
+        val userId: Int = jwt["id"]
         val id = transaction(database) {
-            val exists = !GroupUser.selectAll()
-                .where { (GroupUser.group eq body.groupId) and (GroupUser.user eq jwt.get<Int>("id")) }.empty()
+            val exists =
+                !GroupUser.selectAll().where { (GroupUser.groupId eq body.groupId) and (GroupUser.user eq userId) }
+                    .empty()
             if (!exists) throw NotFoundResponse("Group not found")
-            Purchase.insertAndGetId {
+            val purchaseId = Purchase.insertAndGetId {
                 it[group] = body.groupId
+                it[payer] = userId
                 it[cost] = body.cost
                 it[description] = body.description
             }
+            Payment.batchInsert(body.payments.entries) { (user, amount) ->
+                this[Payment.user] = user
+                this[Payment.paid] = amount
+                this[Payment.purchase] = purchaseId
+            }
+            purchaseId
         }
         ctx.json(id.value)
+    }
+
+    @OpenApi(
+        operationId = "getGroupData",
+        path = "/group/{id}",
+        summary = "Get the data of a group",
+        pathParams = [OpenApiParam("id", Int::class, "Group id")],
+        description = """
+            Retrieve id, name, and payment ids of a group
+        """,
+        methods = [HttpMethod.GET],
+        security = [OpenApiSecurity("BearerAuth")],
+        responses = [OpenApiResponse(
+            "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse(
+            "400", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse(
+            "404", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse("200", [OpenApiContent(GroupData::class, "Group data")])]
+    )
+    private fun getGroupData(ctx: Context) {
+        val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
+        val groupId = ctx.pathParam("id").toIntOrNull() ?: throw BadRequestResponse("Invalid group id")
+        val userId: Int = jwt["id"]
+        val (name, purchases) = transaction(database) {
+            val group = GroupUser.select(GroupUser.groupId, GroupUser.user)
+                .where { (GroupUser.groupId eq groupId) and (GroupUser.user eq userId) }.firstOrNull()
+                ?: throw NotFoundResponse("Group not found")
+            val name = Group.select(Group.name).where { Group.id eq group[GroupUser.groupId] }.single()[Group.name]
+            val purchases =
+                Purchase.select(Purchase.id).where { Purchase.group eq groupId }.map { it[Purchase.id].value }
+            name to purchases
+        }
+        ctx.json(
+            GroupData(
+                id = groupId,
+                name = name,
+                purchases = purchases,
+            )
+        )
+    }
+
+    @OpenApi(
+        operationId = "getAllGroupData",
+        path = "/group-data/{id}",
+        summary = "Get all the data of a group",
+        pathParams = [OpenApiParam("id", Int::class, "Group id")],
+        description = """
+            Retrieve id, name, payments, and the respective purchases of a group
+        """,
+        methods = [HttpMethod.GET],
+        security = [OpenApiSecurity("BearerAuth")],
+        responses = [OpenApiResponse(
+            "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse(
+            "400", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse(
+            "404", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse("200", [OpenApiContent(AllGroupData::class, "Group data")])]
+    )
+    private fun getAllGroupData(ctx: Context) {
+        val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
+        val groupId = ctx.pathParam("id").toIntOrNull() ?: throw BadRequestResponse("Invalid group id")
+        val userId: Int = jwt["id"]
+        val (name, purchases) = transaction(database) {
+            val group = GroupUser.select(GroupUser.groupId, GroupUser.user)
+                .where { (GroupUser.groupId eq groupId) and (GroupUser.user eq userId) }.firstOrNull()
+                ?: throw NotFoundResponse("Group not found")
+            val name = Group.select(Group.name).where { Group.id eq group[GroupUser.groupId] }.single()[Group.name]
+            val payments = Payment.select(Payment.user, Payment.paid, Payment.purchase).where {
+                    exists(
+                        Purchase.selectAll()
+                            .where { (Purchase.group eq groupId) and (Purchase.id eq Payment.purchase) })
+                }.map { it[Payment.purchase].value to (it[Payment.user].value to it[Payment.paid]) }
+                .groupBy({ it.first }, { it.second }).mapValues { it.value.toMap() }
+            val purchases = Purchase.select(Purchase.id, Purchase.description, Purchase.cost, Purchase.payer)
+                .where { Purchase.group eq groupId }.map {
+                    PurchaseData(
+                        id = it[Purchase.id].value,
+                        description = it[Purchase.description],
+                        cost = it[Purchase.cost],
+                        payer = it[Purchase.payer].value,
+                        payments = payments[it[Purchase.id].value] ?: mapOf()
+                    )
+                }
+            name to purchases
+        }
+
+        ctx.json(
+            AllGroupData(
+                id = groupId,
+                name = name,
+                purchases = purchases,
+            )
+        )
+    }
+
+    @OpenApi(
+        operationId = "joinGroup",
+        path = "/group-join/{token}",
+        summary = "Join a group",
+        pathParams = [OpenApiParam("token", String::class, "Invite token")],
+        description = """
+            Makes an user join a group.
+        """,
+        methods = [HttpMethod.POST],
+        security = [OpenApiSecurity("BearerAuth")],
+        responses = [OpenApiResponse(
+            "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse(
+            "400", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse("200")]
+    )
+    private fun joinGroup(ctx: Context) {
+        val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/missing token")
+        if (!jwt.verified) throw UnauthorizedResponse("User must be verified to join group")
+        val token = ctx.pathParam("token")
+        val invite = inviteProvider.validateToken(token).filter { it.id == "invite" }.getOrNull()
+            ?: throw BadRequestResponse("Expired/Invalid invite")
+        val group: Int = invite["group"]
+        val uid: Int = jwt["id"]
+        transaction(database) {
+            GroupUser.insertIgnore {
+                it[groupId] = group
+                it[user] = uid
+            }
+        }
+    }
+
+
+    @OpenApi(
+        operationId = "getGroupInvite",
+        path = "/group-invite/{id}",
+        summary = "Generate an invite for a group",
+        pathParams = [OpenApiParam("id", Int::class, "Group id")],
+        description = """
+            Generate an invite token for a group.
+            The endpoint for accepting the invite is "/group-join/{token}".
+            The token expires after one week.
+        """,
+        methods = [HttpMethod.GET],
+        security = [OpenApiSecurity("BearerAuth")],
+        responses = [OpenApiResponse(
+            "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse(
+            "400", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse("200", [OpenApiContent(String::class, "Invite token")])]
+    )
+    private fun getGroupInvite(ctx: Context) {
+        val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/missing token")
+        val uid: Int = jwt["id"]
+        val gid = ctx.pathParam("id").toIntOrNull() ?: throw BadRequestResponse("Invalid group id")
+        val isMember = transaction(database) {
+            !GroupUser.selectAll().where { (GroupUser.user eq uid) and (GroupUser.groupId eq gid) }.empty()
+        }
+        if (!isMember) throw NotFoundResponse("Group not found")
+        val token = inviteProvider.generateToken(Invite(gid, uid))
+        ctx.json("\"$token\"")
     }
 
     internal val app = Javalin.create { config ->
         config.jetty.defaultPort = port
         config.events.serverStarting {
             transaction(database) {
-                SchemaUtils.create(User, Group, Purchase, GroupUser)
+                SchemaUtils.create(User, Group, GroupUser, Purchase, Payment)
             }
         }
         config.jetty.modifyServer { server ->
@@ -406,7 +611,7 @@ class App(
                     info.title = "COSTSPLIT API"
                 }
                 definition.withSecurity {
-                    it.withBearerAuth("Bearer") { BearerAuth() }
+                    it.withBearerAuth()
                 }
             }
             openApiConfig.withDocumentationPath("/openapi.json")
@@ -426,7 +631,11 @@ class App(
             }
             path("group") {
                 post("{name}", ::createGroup)
+                get("{id}", ::getGroupData)
             }
+            get("group-invite/{id}", ::getGroupInvite)
+            post("group-join/{token}", ::joinGroup)
+            get("group-data/{id}", ::getAllGroupData)
             path("purchase") {
                 post(::createPurchase)
             }
