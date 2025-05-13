@@ -739,6 +739,12 @@
           "name" : {
             "type" : "string"
           },
+          "users" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/UserInfo"
+            }
+          },
           "purchases" : {
             "type" : "array",
             "items" : {
@@ -746,7 +752,7 @@
             }
           }
         },
-        "required" : [ "id", "name", "purchases" ]
+        "required" : [ "id", "name", "users", "purchases" ]
       },
       "CreateUser" : {
         "type" : "object",
@@ -775,6 +781,13 @@
           "name" : {
             "type" : "string"
           },
+          "users" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          },
           "purchases" : {
             "type" : "array",
             "items" : {
@@ -783,7 +796,7 @@
             }
           }
         },
-        "required" : [ "id", "name", "purchases" ]
+        "required" : [ "id", "name", "users", "purchases" ]
       },
       "JsonErrorResponse" : {
         "type" : "object",
@@ -898,6 +911,20 @@
           }
         },
         "required" : [ "id", "name", "email", "token", "groups" ]
+      },
+      "UserInfo" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "name" ]
       }
     },
     "securitySchemes" : {

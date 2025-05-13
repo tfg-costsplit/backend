@@ -49,15 +49,22 @@ internal data class UserData(
     val groups: List<Int>,
 )
 
+internal data class UserInfo(
+    val id: Int,
+    val name: String,
+)
+
 internal data class GroupData(
     val id: Int,
     val name: String,
+    val users: List<Int>,
     val purchases: List<Int>,
 )
 
 internal data class AllGroupData(
     val id: Int,
     val name: String,
+    val users: List<UserInfo>,
     val purchases: List<PurchaseData>,
 )
 
@@ -74,7 +81,6 @@ internal data class PurchaseData(
 private data class UserToken(
     val id: Int,
     val verified: Boolean,
-    val emitter: String,
 )
 
 private data class Invite(
@@ -187,7 +193,7 @@ class App(
                 .withExpiresAt(Instant.now() + Duration.ofDays(14)).sign(alg)
         }, verifier)
         inviteProvider = JWTProvider(algorithm, { invite, alg ->
-            JWT.create().withJWTId("invite").withClaim("group", invite.groupId).withClaim("emitter", invite.emitter)
+            JWT.create().withJWTId("invite").withClaim("group", invite.groupId)
                 .withExpiresAt(Instant.now() + Duration.ofDays(7)).sign(alg)
         }, verifier)
     }
@@ -299,7 +305,6 @@ class App(
                     UserToken(
                         id = id.value,
                         verified = false,
-                        emitter = "create",
                     )
                 )
             )
@@ -343,7 +348,6 @@ class App(
                 token = idProvider.generateToken(
                     UserToken(
                         id = user[User.id].value,
-                        emitter = "verify",
                         verified = user[User.verified],
                     )
                 )
@@ -575,19 +579,24 @@ class App(
         val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
         val groupId = ctx.pathParamAsClass<Int>("id").getOrThrow { BadRequestResponse("Invalid group id") }
         val userId: Int = jwt["id"]
-        val (name, purchases) = transaction(database) {
+        val (name, purchases, users) = transaction(database) {
             val group = GroupUser.select(GroupUser.groupId, GroupUser.user)
                 .where { (GroupUser.groupId eq groupId) and (GroupUser.user eq userId) }.firstOrNull()
                 ?: throw NotFoundResponse("Group not found")
             val name = Group.select(Group.name).where { Group.id eq group[GroupUser.groupId] }.single()[Group.name]
             val purchases =
                 Purchase.select(Purchase.id).where { Purchase.group eq groupId }.map { it[Purchase.id].value }
-            name to purchases
+            val users = User.select(User.id, User.name).where {
+                exists(
+                    GroupUser.selectAll().where { (GroupUser.user eq User.id) and (GroupUser.groupId eq groupId) })
+            }.map { it[User.id].value }
+            Triple(name, purchases, users)
         }
         ctx.json(
             GroupData(
                 id = groupId,
                 name = name,
+                users = users,
                 purchases = purchases,
             )
         )
@@ -615,7 +624,7 @@ class App(
         val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
         val groupId = ctx.pathParamAsClass<Int>("id").getOrThrow { BadRequestResponse("Invalid group id") }
         val userId: Int = jwt["id"]
-        val (name, purchases) = transaction(database) {
+        val (name, purchases, users) = transaction(database) {
             val group = GroupUser.select(GroupUser.groupId, GroupUser.user)
                 .where { (GroupUser.groupId eq groupId) and (GroupUser.user eq userId) }.firstOrNull()
                 ?: throw NotFoundResponse("Group not found")
@@ -638,13 +647,18 @@ class App(
                         payments = payments[it[Purchase.id].value] ?: emptyMap()
                     )
                 }
-            name to purchases
+            val users = User.select(User.id, User.name).where {
+                exists(
+                    GroupUser.selectAll().where { (GroupUser.user eq User.id) and (GroupUser.groupId eq groupId) })
+            }.map { UserInfo(it[User.id].value, it[User.name]) }
+            Triple(name, purchases, users)
         }
 
         ctx.json(
             AllGroupData(
                 id = groupId,
                 name = name,
+                users = users,
                 purchases = purchases,
             )
         )
