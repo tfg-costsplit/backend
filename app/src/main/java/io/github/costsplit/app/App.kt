@@ -16,6 +16,7 @@ import org.apache.commons.mail.EmailException
 import org.apache.commons.mail.SimpleEmail
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.security.SecureRandom
 import java.time.Duration
@@ -30,7 +31,14 @@ internal data class AddPurchase(
     val groupId: Int,
     val description: String,
     val cost: ULong,
-    val payments: Map<Int, ULong>,
+    val payments: Map<Int, PayEntry>,
+)
+
+internal data class UpdatePurchase(
+    val description: String? = null,
+    val cost: ULong? = null,
+    val payments: Map<Int, PayEntry>? = null,
+    val payer: Int? = null,
 )
 
 internal data class UserData(
@@ -38,6 +46,7 @@ internal data class UserData(
     val name: String,
     val email: String,
     val token: String,
+    val groups: List<Int>,
 )
 
 internal data class GroupData(
@@ -47,15 +56,19 @@ internal data class GroupData(
 )
 
 internal data class AllGroupData(
-    val id: Int, val name: String, val purchases: List<PurchaseData>
+    val id: Int,
+    val name: String,
+    val purchases: List<PurchaseData>,
 )
+
+internal data class PayEntry(val paid: ULong, val shouldPay: ULong)
 
 internal data class PurchaseData(
     val id: Int,
     val cost: ULong,
     val payer: Int,
     val description: String,
-    val payments: Map<Int, ULong>,
+    val payments: Map<Int, PayEntry>,
 )
 
 private data class UserToken(
@@ -106,6 +119,7 @@ private object Payment : IntIdTable("payment") {
     val user = reference("user", User.id)
     val purchase = reference("purchase", Purchase.id)
     val paid = ulong("paid")
+    val shouldPay = ulong("should_pay")
 }
 
 private data class JsonErrorResponse(
@@ -277,7 +291,11 @@ class App(
         )
         ctx.json(
             UserData(
-                id = id.value, name = body.name, email = body.email, token = idProvider.generateToken(
+                id = id.value,
+                name = body.name,
+                email = body.email,
+                groups = emptyList(),
+                token = idProvider.generateToken(
                     UserToken(
                         id = id.value,
                         verified = false,
@@ -306,16 +324,23 @@ class App(
     )
     private fun login(ctx: Context) {
         val body = ctx.bodyAsClass<Login>()
-        val user = transaction(database) {
-            with(User) {
-                select(id, name, salt, hash, verified).where { email eq body.email }.singleOrNull()
-            }
-        } ?: throw UnauthorizedResponse("Invalid password or email")
-        val hash = hashPassword(body.password, user[User.salt])
-        if (!hash.contentEquals(user[User.hash])) throw UnauthorizedResponse("Invalid password or email")
+        val (user, groups) = transaction(database) {
+            val user =
+                User.select(User.id, User.name, User.salt, User.hash, User.verified).where { User.email eq body.email }
+                    .singleOrNull() ?: throw UnauthorizedResponse("Invalid password or email")
+            val hash = hashPassword(body.password, user[User.salt])
+            if (!hash.contentEquals(user[User.hash])) throw UnauthorizedResponse("Invalid password or email")
+            val groups = GroupUser.select(GroupUser.groupId).where { GroupUser.user eq user[User.id] }
+                .map { it[GroupUser.groupId].value }.toList()
+            user to groups
+        }
         ctx.json(
             UserData(
-                id = user[User.id].value, name = user[User.name], email = body.email, token = idProvider.generateToken(
+                id = user[User.id].value,
+                name = user[User.name],
+                email = body.email,
+                groups = groups,
+                token = idProvider.generateToken(
                     UserToken(
                         id = user[User.id].value,
                         emitter = "verify",
@@ -367,7 +392,7 @@ class App(
             Create an empty group for the user and return the group id
         """,
         methods = [HttpMethod.POST],
-        pathParams = [OpenApiParam("name", String::class, "Name of the group")],
+        requestBody = OpenApiRequestBody([OpenApiContent(String::class)], description = "Group name"),
         security = [OpenApiSecurity("BearerAuth")],
         responses = [OpenApiResponse(
             "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
@@ -378,7 +403,7 @@ class App(
     private fun createGroup(ctx: Context) {
         val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
         if (!jwt.verified) throw UnauthorizedResponse("User must be verified")
-        val groupName = ctx.pathParam("name")
+        val groupName = ctx.body()
         if (groupName.length > 256) throw BadRequestResponse("Group name is too long, limit is 256 bytes")
         val userId: Int = jwt["id"]
         val id = transaction(database) {
@@ -428,14 +453,104 @@ class App(
                 it[cost] = body.cost
                 it[description] = body.description
             }
-            Payment.batchInsert(body.payments.entries) { (user, amount) ->
+            Payment.batchInsert(body.payments.entries) { (user, entry) ->
                 this[Payment.user] = user
-                this[Payment.paid] = amount
+                this[Payment.paid] = entry.paid
                 this[Payment.purchase] = purchaseId
+                this[Payment.shouldPay] = entry.shouldPay
             }
             purchaseId
         }
         ctx.json(id.value)
+    }
+
+    @OpenApi(
+        operationId = "updatePurchase",
+        path = "/purchase/{id}",
+        summary = "Update a purchase",
+        description = """
+            Update a purchase and how it's supposed to be paid.
+            The user must be a member of the provided group.
+        """,
+        pathParams = [OpenApiParam("id", Int::class, "Id of the purchase")],
+        methods = [HttpMethod.POST],
+        requestBody = OpenApiRequestBody([OpenApiContent(UpdatePurchase::class)]),
+        security = [OpenApiSecurity("BearerAuth")],
+        responses = [OpenApiResponse(
+            "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse(
+            "404", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse("200")],
+    )
+    private fun updatePurchase(ctx: Context) {
+        val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
+        if (!jwt.verified) throw UnauthorizedResponse("User must be verified")
+        val body: UpdatePurchase = ctx.bodyAsClass()
+        val id = ctx.pathParamAsClass<Int>("id").getOrThrow { BadRequestResponse("Invalid/Missing purchase id") }
+        val userId: Int = jwt["id"]
+        transaction(database) {
+            val notExists = GroupUser.selectAll().where {
+                (GroupUser.user eq userId) and exists(
+                    Purchase.selectAll().where { Purchase.group eq GroupUser.groupId })
+            }.empty()
+            if (notExists) throw NotFoundResponse("Purchase not found")
+            Purchase.update({ Purchase.id eq id }) { row ->
+                body.payer?.let { row[payer] = it }
+                body.cost?.let { row[cost] = it }
+                body.description?.let { row[description] = it }
+            }
+            body.payments?.let {
+                Payment.deleteWhere { Payment.id eq id }
+                Payment.batchInsert(it.entries) { (user, entry) ->
+                    this[Payment.user] = user
+                    this[Payment.paid] = entry.paid
+                    this[Payment.purchase] = id
+                    this[Payment.shouldPay] = entry.shouldPay
+                }
+            }
+        }
+    }
+
+    @OpenApi(
+        operationId = "getPurchaseData",
+        path = "/purchase/{id}",
+        summary = "Get information about a purchase",
+        description = """
+            Get all the information related to a purchase
+        """,
+        pathParams = [OpenApiParam("id", Int::class, "Id of the purchase")],
+        methods = [HttpMethod.GET],
+        security = [OpenApiSecurity("BearerAuth")],
+        responses = [OpenApiResponse(
+            "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse(
+            "404", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse("200", [OpenApiContent(PurchaseData::class)])],
+    )
+    private fun getPurchaseData(ctx: Context) {
+        val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
+        val id = ctx.pathParamAsClass<Int>("id").getOrThrow { BadRequestResponse("Invalid/Missing purchase id") }
+        val userId: Int = jwt["id"]
+        val (purchase, payments) = transaction(database) {
+            val purchase = Purchase.select(Purchase.cost, Purchase.description, Purchase.payer).where {
+                exists(
+                    GroupUser.selectAll()
+                        .where { (GroupUser.groupId eq Purchase.group) and (GroupUser.user eq userId) })
+            }.singleOrNull() ?: throw NotFoundResponse("Purchase not found")
+            val payments =
+                Payment.select(Payment.user, Payment.paid, Payment.shouldPay).where { Payment.purchase eq id }
+                    .associate { it[Payment.user].value to PayEntry(it[Payment.paid], it[Payment.shouldPay]) }
+            purchase to payments
+        }
+        ctx.json(
+            PurchaseData(
+                id = id,
+                cost = purchase[Purchase.cost],
+                description = purchase[Purchase.description],
+                payer = purchase[Purchase.payer].value,
+                payments = payments,
+            )
+        )
     }
 
     @OpenApi(
@@ -458,7 +573,7 @@ class App(
     )
     private fun getGroupData(ctx: Context) {
         val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
-        val groupId = ctx.pathParam("id").toIntOrNull() ?: throw BadRequestResponse("Invalid group id")
+        val groupId = ctx.pathParamAsClass<Int>("id").getOrThrow { BadRequestResponse("Invalid group id") }
         val userId: Int = jwt["id"]
         val (name, purchases) = transaction(database) {
             val group = GroupUser.select(GroupUser.groupId, GroupUser.user)
@@ -498,18 +613,21 @@ class App(
     )
     private fun getAllGroupData(ctx: Context) {
         val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/Missing token")
-        val groupId = ctx.pathParam("id").toIntOrNull() ?: throw BadRequestResponse("Invalid group id")
+        val groupId = ctx.pathParamAsClass<Int>("id").getOrThrow { BadRequestResponse("Invalid group id") }
         val userId: Int = jwt["id"]
         val (name, purchases) = transaction(database) {
             val group = GroupUser.select(GroupUser.groupId, GroupUser.user)
                 .where { (GroupUser.groupId eq groupId) and (GroupUser.user eq userId) }.firstOrNull()
                 ?: throw NotFoundResponse("Group not found")
             val name = Group.select(Group.name).where { Group.id eq group[GroupUser.groupId] }.single()[Group.name]
-            val payments = Payment.select(Payment.user, Payment.paid, Payment.purchase).where {
+            val payments = Payment.select(Payment.user, Payment.paid, Payment.shouldPay, Payment.purchase).where {
                 exists(
                     Purchase.selectAll().where { (Purchase.group eq groupId) and (Purchase.id eq Payment.purchase) })
-            }.map { it[Payment.purchase].value to (it[Payment.user].value to it[Payment.paid]) }
-                .groupBy({ it.first }, { it.second }).mapValues { it.value.toMap() }
+            }.map {
+                it[Payment.purchase].value to (it[Payment.user].value to PayEntry(
+                    it[Payment.paid], it[Payment.shouldPay]
+                ))
+            }.groupBy({ it.first }, { it.second }).mapValues { it.value.toMap() }
             val purchases = Purchase.select(Purchase.id, Purchase.description, Purchase.cost, Purchase.payer)
                 .where { Purchase.group eq groupId }.map {
                     PurchaseData(
@@ -517,7 +635,7 @@ class App(
                         description = it[Purchase.description],
                         cost = it[Purchase.cost],
                         payer = it[Purchase.payer].value,
-                        payments = payments[it[Purchase.id].value] ?: mapOf()
+                        payments = payments[it[Purchase.id].value] ?: emptyMap()
                     )
                 }
             name to purchases
@@ -586,7 +704,7 @@ class App(
     private fun getGroupInvite(ctx: Context) {
         val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/missing token")
         val uid: Int = jwt["id"]
-        val gid = ctx.pathParam("id").toIntOrNull() ?: throw BadRequestResponse("Invalid group id")
+        val gid = ctx.pathParamAsClass<Int>("id").getOrThrow { BadRequestResponse("Invalid group id") }
         val isMember = transaction(database) {
             !GroupUser.selectAll().where { (GroupUser.user eq uid) and (GroupUser.groupId eq gid) }.empty()
         }
@@ -630,7 +748,7 @@ class App(
                 }
             }
             path("group") {
-                post("{name}", ::createGroup)
+                post(::createGroup)
                 get("{id}", ::getGroupData)
             }
             get("group-invite/{id}", ::getGroupInvite)
@@ -638,6 +756,8 @@ class App(
             get("group-data/{id}", ::getAllGroupData)
             path("purchase") {
                 post(::createPurchase)
+                post("{id}", ::updatePurchase)
+                get("{id}", ::getPurchaseData)
             }
         }
     }

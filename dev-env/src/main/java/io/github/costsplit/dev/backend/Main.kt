@@ -84,11 +84,10 @@ fun main() {
     )
     println(unverifiedUser)
 
-    generateSequence(dumbster.receivedEmails.asSequence()) {
+    generateSequence(Unit) {
         dumbster.reset()
         Thread.sleep(1000)
-        dumbster.receivedEmails.asSequence()
-    }.flatten().forEach {
-            println(it)
-        }
+    }.flatMap { dumbster.receivedEmails }.forEach {
+        println(it)
+    }
 }

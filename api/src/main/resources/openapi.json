@@ -437,17 +437,18 @@
         "summary" : "Create a new group",
         "description" : "\n            Create an empty group for the user and return the group id\n        ",
         "operationId" : "createGroup",
-        "parameters" : [ {
-          "name" : "name",
-          "in" : "path",
-          "description" : "Name of the group",
-          "required" : false,
-          "deprecated" : false,
-          "allowEmptyValue" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
+        "parameters" : [ ],
+        "requestBody" : {
+          "description" : "Group name",
+          "content" : {
+            "text/plain" : {
+              "schema" : {
+                "type" : "string"
+              }
+            }
+          },
+          "required" : false
+        },
         "responses" : {
           "200" : {
             "description" : "Group id",
@@ -562,6 +563,139 @@
           "BearerAuth" : [ ]
         } ]
       }
+    },
+    "/purchase/{id}" : {
+      "post" : {
+        "tags" : [ ],
+        "summary" : "Update a purchase",
+        "description" : "\n            Update a purchase and how it's supposed to be paid.\n            The user must be a member of the provided group.\n        ",
+        "operationId" : "updatePurchase",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "description" : "Id of the purchase",
+          "required" : false,
+          "deprecated" : false,
+          "allowEmptyValue" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdatePurchase"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "401" : {
+            "description" : "Unauthorized",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false,
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ]
+      },
+      "get" : {
+        "tags" : [ ],
+        "summary" : "Get information about a purchase",
+        "description" : "\n            Get all the information related to a purchase\n        ",
+        "operationId" : "getPurchaseData",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "description" : "Id of the purchase",
+          "required" : false,
+          "deprecated" : false,
+          "allowEmptyValue" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PurchaseData"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false,
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ]
+      }
     }
   },
   "components" : {
@@ -580,7 +714,7 @@
           "payments" : {
             "type" : "object",
             "additionalProperties" : {
-              "$ref" : "#/components/schemas/ULong"
+              "$ref" : "#/components/schemas/PayEntry"
             }
           }
         },
@@ -679,6 +813,11 @@
         },
         "required" : [ "email", "password" ]
       },
+      "PayEntry" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : { }
+      },
       "PurchaseData" : {
         "type" : "object",
         "additionalProperties" : false,
@@ -697,11 +836,33 @@
           "payments" : {
             "type" : "object",
             "additionalProperties" : {
-              "$ref" : "#/components/schemas/ULong"
+              "$ref" : "#/components/schemas/PayEntry"
             }
           }
         },
         "required" : [ "id", "payer", "description", "payments" ]
+      },
+      "UpdatePurchase" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "payments" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/PayEntry"
+            },
+            "nullable" : true
+          },
+          "payer" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          }
+        }
       },
       "UserData" : {
         "type" : "object",
@@ -719,14 +880,16 @@
           },
           "token" : {
             "type" : "string"
+          },
+          "groups" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
           }
         },
-        "required" : [ "id", "name", "email", "token" ]
-      },
-      "ULong" : {
-        "type" : "object",
-        "additionalProperties" : false,
-        "properties" : { }
+        "required" : [ "id", "name", "email", "token", "groups" ]
       }
     },
     "securitySchemes" : {

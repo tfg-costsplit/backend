@@ -168,7 +168,7 @@ class AppTest {
     @Test
     fun `POST to create group succeeds`() = test { server, client ->
         val token: UserData = testUser.login(server.port(), client).assertCode(200).parse()
-        val response = client.post("/group/testGroup") {
+        val response = client.post("/group", "testGroup") {
             it.jwt(token.token)
         }
         response.assertCode(200).parse<Int>()
@@ -177,21 +177,21 @@ class AppTest {
     @Test
     fun `POST to create group without auth fails`() = test { client ->
         val user: UserData = testUser.create(client).assertCode(200).parse()
-        client.post("/group/testName") { it.jwt(user.token) }.assertCode(401)
-        client.post("/group/testName").assertCode(401)
+        client.post("/group", "testName") { it.jwt(user.token) }.assertCode(401)
+        client.post("/group", "testName").assertCode(401)
     }
 
     @Test
     fun `POST to create purchase succeeds`() = test { server, client ->
         val userData: UserData = testUser.login(server.port(), client).assertCode(200).parse()
-        val groupId: Int = client.post("/group/testGroup") {
+        val groupId: Int = client.post("/group", "testGroup") {
             it.jwt(userData.token)
         }.assertCode(200).parse()
 
         client.post(
             "/purchase", AddPurchase(
                 groupId = groupId, cost = 100UL, description = "empty", payments = mapOf(
-                    userData.id to 100UL
+                    userData.id to PayEntry(100UL, 100UL)
                 )
             )
         ) {
@@ -214,7 +214,7 @@ class AppTest {
     @Test
     fun `POST to create purchase without auth fails`() = test { server, client ->
         val data: UserData = testUser.login(server.port(), client).assertCode(200).parse()
-        val groupId: Int = client.post("/group/testName") { it.jwt(data.token) }.assertCode(200).parse()
+        val groupId: Int = client.post("/group", "testName") { it.jwt(data.token) }.assertCode(200).parse()
         client.post(
             "/purchase", AddPurchase(
                 groupId = groupId,
@@ -253,7 +253,7 @@ class AppTest {
     @Test
     fun `POST to create group with long name fails`() = test { server, client ->
         val data: UserData = testUser.login(server.port(), client).assertCode(200).parse()
-        client.post("/group/${"a".repeat(257)}") { it.jwt(data.token) }.assertCode(400)
+        client.post("/group", "a".repeat(257)) { it.jwt(data.token) }.assertCode(400)
     }
 
     @Test
@@ -261,7 +261,7 @@ class AppTest {
         val data: UserData = testUser.login(server.port(), client).assertCode(200).parse()
         val data2: UserData =
             testUser.copy(email = "test2@test.net").login(server.port(), client).assertCode(200).parse()
-        val groupId: Int = client.post("/group/testName") { it.jwt(data.token) }.assertCode(200).parse()
+        val groupId: Int = client.post("/group", "testName") { it.jwt(data.token) }.assertCode(200).parse()
         client.post(
             "/purchase", AddPurchase(
                 groupId = groupId, cost = 0UL, description = "", payments = mapOf()
@@ -277,7 +277,7 @@ class AppTest {
     @Test
     fun `GET to request group data contains purchases`() = test { server, client ->
         val data: UserData = testUser.login(server.port(), client).assertCode(200).parse()
-        val gid: Int = client.post("/group/testGroup") { it.jwt(data.token) }.assertCode(200).parse()
+        val gid: Int = client.post("/group", "testGroup") { it.jwt(data.token) }.assertCode(200).parse()
         val pid: Int = client.post(
             "/purchase", AddPurchase(
                 groupId = gid, cost = 0UL, description = "", payments = mapOf()
@@ -304,8 +304,25 @@ class AppTest {
         val data: UserData = testUser.login(server.port(), client).assertCode(200).parse()
         val data2: UserData =
             testUser.copy(email = "testuser2@mail.com").login(server.port(), client).assertCode(200).parse()
-        val gid: Int = client.post("/group/testGroup") { it.jwt(data.token) }.assertCode(200).parse()
+        val gid: Int = client.post("/group", "testGroup") { it.jwt(data.token) }.assertCode(200).parse()
         val token: String = client.get("/group-invite/$gid") { it.jwt(data.token) }.assertCode(200).body!!.string()
         client.post("/group-join/$token") { it.jwt(data2.token) }.assertCode(200)
+    }
+
+    @Test
+    fun `POST to update payment works`() = test { server, client ->
+        val data: UserData = testUser.login(server.port(), client).assertCode(200).parse()
+        val groupId: Int = client.post("/group", "testName") { it.jwt(data.token) }.assertCode(200).parse()
+        val id: Int = client.post(
+            "/purchase", AddPurchase(
+                groupId = groupId, cost = 0UL, description = "", payments = mapOf()
+            )
+        ) { it.jwt(data.token) }.assertCode(200).parse()
+        client.post(
+            "/purchase/$id", UpdatePurchase(description = "hello")
+        ) { it.jwt(data.token) }.assertCode(200)
+        assertThat(
+            client.get("/purchase/$id") { it.jwt(data.token) }.assertCode(200).parse<PurchaseData>().description
+        ).isEqualTo("hello")
     }
 }
