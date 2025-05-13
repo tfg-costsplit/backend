@@ -664,7 +664,7 @@ class App(
             "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
         ), OpenApiResponse(
             "400", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
-        ), OpenApiResponse("200")]
+        ), OpenApiResponse("200", [OpenApiContent(Int::class)], "Id of the joined group")]
     )
     private fun joinGroup(ctx: Context) {
         val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/missing token")
@@ -680,6 +680,7 @@ class App(
                 it[user] = uid
             }
         }
+        ctx.json(group)
     }
 
 

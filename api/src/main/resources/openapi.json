@@ -378,7 +378,15 @@
         } ],
         "responses" : {
           "200" : {
-            "description" : "OK"
+            "description" : "Id of the joined group",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "integer",
+                  "format" : "int32"
+                }
+              }
+            }
           },
           "400" : {
             "description" : "Bad Request",
