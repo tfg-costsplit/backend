@@ -386,7 +386,7 @@ class App(
 
     @OpenApi(
         operationId = "createGroup",
-        path = "/group/{name}",
+        path = "/group",
         summary = "Create a new group",
         description = """
             Create an empty group for the user and return the group id

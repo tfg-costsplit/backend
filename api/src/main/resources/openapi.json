@@ -145,6 +145,73 @@
         "security" : [ ]
       }
     },
+    "/group" : {
+      "post" : {
+        "tags" : [ ],
+        "summary" : "Create a new group",
+        "description" : "\n            Create an empty group for the user and return the group id\n        ",
+        "operationId" : "createGroup",
+        "parameters" : [ ],
+        "requestBody" : {
+          "description" : "Group name",
+          "content" : {
+            "text/plain" : {
+              "schema" : {
+                "type" : "string"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Group id",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "integer",
+                  "format" : "int32"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false,
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ]
+      }
+    },
     "/group-data/{id}" : {
       "get" : {
         "tags" : [ ],
@@ -411,73 +478,6 @@
           },
           "404" : {
             "description" : "Not Found",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/JsonErrorResponse"
-                }
-              },
-              "text/plain" : {
-                "schema" : {
-                  "type" : "string"
-                }
-              }
-            }
-          }
-        },
-        "deprecated" : false,
-        "security" : [ {
-          "BearerAuth" : [ ]
-        } ]
-      }
-    },
-    "/group/{name}" : {
-      "post" : {
-        "tags" : [ ],
-        "summary" : "Create a new group",
-        "description" : "\n            Create an empty group for the user and return the group id\n        ",
-        "operationId" : "createGroup",
-        "parameters" : [ ],
-        "requestBody" : {
-          "description" : "Group name",
-          "content" : {
-            "text/plain" : {
-              "schema" : {
-                "type" : "string"
-              }
-            }
-          },
-          "required" : false
-        },
-        "responses" : {
-          "200" : {
-            "description" : "Group id",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "type" : "integer",
-                  "format" : "int32"
-                }
-              }
-            }
-          },
-          "400" : {
-            "description" : "Bad Request",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/JsonErrorResponse"
-                }
-              },
-              "text/plain" : {
-                "schema" : {
-                  "type" : "string"
-                }
-              }
-            }
-          },
-          "401" : {
-            "description" : "Unauthorized",
             "content" : {
               "application/json" : {
                 "schema" : {
