@@ -190,8 +190,8 @@ class AppTest {
 
         client.post(
             "/purchase", AddPurchase(
-                groupId = groupId, cost = 100UL, description = "empty", payments = mapOf(
-                    userData.id to PayEntry(100UL, 100UL)
+                groupId = groupId, cost = 100L, description = "empty", payments = mapOf(
+                    userData.id to PayEntry(100L, 100L)
                 )
             )
         ) {
@@ -204,7 +204,7 @@ class AppTest {
         val userData: UserData = testUser.login(server.port(), client).assertCode(200).parse()
         client.post(
             "/purchase", AddPurchase(
-                groupId = 0, cost = 0UL, description = "", payments = mapOf()
+                groupId = 0, cost = 0L, description = "", payments = mapOf()
             )
         ) {
             it.jwt(userData.token)
@@ -218,7 +218,7 @@ class AppTest {
         client.post(
             "/purchase", AddPurchase(
                 groupId = groupId,
-                cost = 0UL,
+                cost = 0L,
                 description = "",
                 payments = mapOf(),
             )
@@ -228,7 +228,7 @@ class AppTest {
         client.post(
             "/purchase", AddPurchase(
                 groupId = groupId,
-                cost = 0UL,
+                cost = 0L,
                 description = "",
                 payments = mapOf(),
             )
@@ -264,12 +264,12 @@ class AppTest {
         val groupId: Int = client.post("/group", "testName") { it.jwt(data.token) }.assertCode(200).parse()
         client.post(
             "/purchase", AddPurchase(
-                groupId = groupId, cost = 0UL, description = "", payments = mapOf()
+                groupId = groupId, cost = 0L, description = "", payments = mapOf()
             )
         ) { it.jwt(data2.token) }.assertCode(404)
         client.post(
             "/purchase", AddPurchase(
-                groupId = groupId, cost = 0UL, description = "", payments = mapOf()
+                groupId = groupId, cost = 0L, description = "", payments = mapOf()
             )
         ) { it.jwt(data.token) }.assertCode(200)
     }
@@ -280,7 +280,7 @@ class AppTest {
         val gid: Int = client.post("/group", "testGroup") { it.jwt(data.token) }.assertCode(200).parse()
         val pid: Int = client.post(
             "/purchase", AddPurchase(
-                groupId = gid, cost = 0UL, description = "", payments = mapOf()
+                groupId = gid, cost = 0L, description = "", payments = mapOf()
             )
         ) { it.jwt(data.token) }.assertCode(200).parse()
         val gdata: GroupData = client.get("/group/$gid") { it.jwt(data.token) }.assertCode(200).parse()
@@ -292,7 +292,7 @@ class AppTest {
             PurchaseData(
                 id = pid,
                 payer = data.id,
-                cost = 0UL,
+                cost = 0L,
                 description = "",
                 payments = mapOf(),
             )
@@ -315,7 +315,7 @@ class AppTest {
         val groupId: Int = client.post("/group", "testName") { it.jwt(data.token) }.assertCode(200).parse()
         val id: Int = client.post(
             "/purchase", AddPurchase(
-                groupId = groupId, cost = 0UL, description = "", payments = mapOf()
+                groupId = groupId, cost = 0L, description = "", payments = mapOf()
             )
         ) { it.jwt(data.token) }.assertCode(200).parse()
         client.post(

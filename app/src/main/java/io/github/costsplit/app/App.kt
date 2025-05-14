@@ -30,13 +30,13 @@ import kotlin.time.Duration.Companion.seconds
 internal data class AddPurchase(
     val groupId: Int,
     val description: String,
-    val cost: ULong,
+    val cost: Long,
     val payments: Map<Int, PayEntry>,
 )
 
 internal data class UpdatePurchase(
     val description: String? = null,
-    val cost: ULong? = null,
+    val cost: Long? = null,
     val payments: Map<Int, PayEntry>? = null,
     val payer: Int? = null,
 )
@@ -68,11 +68,11 @@ internal data class AllGroupData(
     val purchases: List<PurchaseData>,
 )
 
-internal data class PayEntry(val paid: ULong, val shouldPay: ULong)
+internal data class PayEntry(val paid: Long, val shouldPay: Long)
 
 internal data class PurchaseData(
     val id: Int,
-    val cost: ULong,
+    val cost: Long,
     val payer: Int,
     val description: String,
     val payments: Map<Int, PayEntry>,
@@ -454,14 +454,14 @@ class App(
             val purchaseId = Purchase.insertAndGetId {
                 it[group] = body.groupId
                 it[payer] = userId
-                it[cost] = body.cost
+                it[cost] = body.cost.toULong()
                 it[description] = body.description
             }
             Payment.batchInsert(body.payments.entries) { (user, entry) ->
                 this[Payment.user] = user
-                this[Payment.paid] = entry.paid
+                this[Payment.paid] = entry.paid.toULong()
                 this[Payment.purchase] = purchaseId
-                this[Payment.shouldPay] = entry.shouldPay
+                this[Payment.shouldPay] = entry.shouldPay.toULong()
             }
             purchaseId
         }
@@ -500,16 +500,16 @@ class App(
             if (notExists) throw NotFoundResponse("Purchase not found")
             Purchase.update({ Purchase.id eq id }) { row ->
                 body.payer?.let { row[payer] = it }
-                body.cost?.let { row[cost] = it }
+                body.cost?.let { row[cost] = it.toULong() }
                 body.description?.let { row[description] = it }
             }
             body.payments?.let {
                 Payment.deleteWhere { Payment.id eq id }
                 Payment.batchInsert(it.entries) { (user, entry) ->
                     this[Payment.user] = user
-                    this[Payment.paid] = entry.paid
+                    this[Payment.paid] = entry.paid.toULong()
                     this[Payment.purchase] = id
-                    this[Payment.shouldPay] = entry.shouldPay
+                    this[Payment.shouldPay] = entry.shouldPay.toULong()
                 }
             }
         }
@@ -543,13 +543,13 @@ class App(
             }.singleOrNull() ?: throw NotFoundResponse("Purchase not found")
             val payments =
                 Payment.select(Payment.user, Payment.paid, Payment.shouldPay).where { Payment.purchase eq id }
-                    .associate { it[Payment.user].value to PayEntry(it[Payment.paid], it[Payment.shouldPay]) }
+                    .associate { it[Payment.user].value to PayEntry(it[Payment.paid].toLong(), it[Payment.shouldPay].toLong()) }
             purchase to payments
         }
         ctx.json(
             PurchaseData(
                 id = id,
-                cost = purchase[Purchase.cost],
+                cost = purchase[Purchase.cost].toLong(),
                 description = purchase[Purchase.description],
                 payer = purchase[Purchase.payer].value,
                 payments = payments,
@@ -634,7 +634,7 @@ class App(
                     Purchase.selectAll().where { (Purchase.group eq groupId) and (Purchase.id eq Payment.purchase) })
             }.map {
                 it[Payment.purchase].value to (it[Payment.user].value to PayEntry(
-                    it[Payment.paid], it[Payment.shouldPay]
+                    it[Payment.paid].toLong(), it[Payment.shouldPay].toLong()
                 ))
             }.groupBy({ it.first }, { it.second }).mapValues { it.value.toMap() }
             val purchases = Purchase.select(Purchase.id, Purchase.description, Purchase.cost, Purchase.payer)
@@ -642,7 +642,7 @@ class App(
                     PurchaseData(
                         id = it[Purchase.id].value,
                         description = it[Purchase.description],
-                        cost = it[Purchase.cost],
+                        cost = it[Purchase.cost].toLong(),
                         payer = it[Purchase.payer].value,
                         payments = payments[it[Purchase.id].value] ?: emptyMap()
                     )

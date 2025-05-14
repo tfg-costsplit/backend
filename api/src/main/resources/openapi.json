@@ -719,6 +719,10 @@
           "description" : {
             "type" : "string"
           },
+          "cost" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "payments" : {
             "type" : "object",
             "additionalProperties" : {
@@ -726,7 +730,7 @@
             }
           }
         },
-        "required" : [ "groupId", "description", "payments" ]
+        "required" : [ "groupId", "description", "cost", "payments" ]
       },
       "AllGroupData" : {
         "type" : "object",
@@ -837,7 +841,17 @@
       "PayEntry" : {
         "type" : "object",
         "additionalProperties" : false,
-        "properties" : { }
+        "properties" : {
+          "paid" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "shouldPay" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "paid", "shouldPay" ]
       },
       "PurchaseData" : {
         "type" : "object",
@@ -846,6 +860,10 @@
           "id" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "cost" : {
+            "type" : "integer",
+            "format" : "int64"
           },
           "payer" : {
             "type" : "integer",
@@ -861,7 +879,7 @@
             }
           }
         },
-        "required" : [ "id", "payer", "description", "payments" ]
+        "required" : [ "id", "cost", "payer", "description", "payments" ]
       },
       "UpdatePurchase" : {
         "type" : "object",
@@ -869,6 +887,11 @@
         "properties" : {
           "description" : {
             "type" : "string",
+            "nullable" : true
+          },
+          "cost" : {
+            "type" : "integer",
+            "format" : "int64",
             "nullable" : true
           },
           "payments" : {
