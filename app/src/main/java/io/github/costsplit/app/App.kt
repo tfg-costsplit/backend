@@ -498,11 +498,12 @@ class App(
                     Purchase.selectAll().where { Purchase.group eq GroupUser.groupId })
             }.empty()
             if (notExists) throw NotFoundResponse("Purchase not found")
-            Purchase.update({ Purchase.id eq id }) { row ->
-                body.payer?.let { row[payer] = it }
-                body.cost?.let { row[cost] = it.toULong() }
-                body.description?.let { row[description] = it }
-            }
+            if (arrayOf(body.payer, body.cost, body.description).any { it != null })
+                Purchase.update({ Purchase.id eq id }) { row ->
+                    body.payer?.let { row[payer] = it }
+                    body.cost?.let { row[cost] = it.toULong() }
+                    body.description?.let { row[description] = it }
+                }
             body.payments?.let {
                 Payment.deleteWhere { Payment.id eq id }
                 Payment.batchInsert(it.entries) { (user, entry) ->
