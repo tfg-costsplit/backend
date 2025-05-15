@@ -336,7 +336,7 @@ class App(
             val hash = hashPassword(body.password, user[User.salt])
             if (!hash.contentEquals(user[User.hash])) throw UnauthorizedResponse("Invalid password or email")
             val groups = GroupUser.select(GroupUser.groupId).where { GroupUser.user eq user[User.id] }
-                .map { it[GroupUser.groupId].value }.toList()
+                .map { it[GroupUser.groupId].value }
             user to groups
         }
         ctx.json(
@@ -537,13 +537,17 @@ class App(
         val userId: Int = jwt["id"]
         val (purchase, payments) = transaction(database) {
             val purchase = Purchase.select(Purchase.cost, Purchase.description, Purchase.payer).where {
-                exists(
+                (Purchase.id eq id) and exists(
                     GroupUser.selectAll()
                         .where { (GroupUser.groupId eq Purchase.group) and (GroupUser.user eq userId) })
             }.singleOrNull() ?: throw NotFoundResponse("Purchase not found")
             val payments =
                 Payment.select(Payment.user, Payment.paid, Payment.shouldPay).where { Payment.purchase eq id }
-                    .associate { it[Payment.user].value to PayEntry(it[Payment.paid].toLong(), it[Payment.shouldPay].toLong()) }
+                    .associate {
+                        it[Payment.user].value to PayEntry(
+                            it[Payment.paid].toLong(), it[Payment.shouldPay].toLong()
+                        )
+                    }
             purchase to payments
         }
         ctx.json(
