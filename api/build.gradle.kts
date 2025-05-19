@@ -19,10 +19,6 @@ sourceSets {
     }
 }
 
-java {
-    withJavadocJar()
-    withSourcesJar()
-}
 
 openApiGenerate {
     inputSpec = "$projectDir/src/main/resources/openapi.json"
@@ -36,6 +32,15 @@ openApiGenerate {
     modelPackage = "io.github.costsplit.api.model"
     library = "native"
     skipValidateSpec = true
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+tasks.withType<Jar> {
+    dependsOn(tasks.openApiGenerate)
 }
 
 description = "api"
