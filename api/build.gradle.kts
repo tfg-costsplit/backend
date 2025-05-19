@@ -8,6 +8,7 @@ plugins {
     java
     `maven-publish`
     signing
+    id("org.jreleaser") version "1.18.0"
 }
 
 sourceSets {
@@ -82,6 +83,24 @@ publishing {
             credentials {
                 username = System.getenv("MAVEN_REPO_USER")
                 password = System.getenv("MAVEN_REPO_PASS")
+            }
+        }
+    }
+}
+
+jreleaser {
+    signing {
+        setActive("ALWAYS")
+        armored.set(true)
+    }
+    deploy {
+        maven {
+            mavenCentral {
+                create("sonatype") {
+                    setActive("ALWAYS")
+                    url.set("https://central.sonatype.com/api/v1/publisher")
+                    stagingRepository("target/staging-deploy")
+                }
             }
         }
     }

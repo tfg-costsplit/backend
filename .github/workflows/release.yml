@@ -25,4 +25,4 @@ jobs:
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_USER_KEY }}
           MAVEN_REPO_PASS: ${{ secrets.MAVEN_REPO_PASS }}
           MAVEN_REPO_USER: ${{ secrets.MAVEN_REPO_USER }}
-        run: ./gradlew :api:publish -Pversion=${GITHUB_REF#refs/tags/}
+        run: ./gradlew :api:jreleaserDeploy -Pversion=${GITHUB_REF#refs/tags/}
