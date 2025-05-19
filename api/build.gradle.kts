@@ -80,7 +80,7 @@ publishing {
 
                 scm {
                     connection.set("scm:git:https://github.com/tfg-costsplit/backend.git")
-                    developerConnection.set("scm:git:ssh://git@github.com:tfg-costsplit/backend.git")
+                    developerConnection.set("scm:git:ssh://github.com/tfg-costsplit/backend.git")
                     url.set("https://github.com/tfg-costsplit/backend")
                 }
             }
@@ -103,8 +103,6 @@ jreleaser {
             mavenCentral {
                 create("sonatype") {
                     setActive("ALWAYS")
-                    username.set("SONATYPE_USERNAME")
-                    password.set("SONATYPE_PASSWORD")
                     url.set("https://central.sonatype.com/api/v1/publisher")
                     stagingRepository(layout.buildDirectory.dir("staging-deploy").get().asFile.toString())
                 }
