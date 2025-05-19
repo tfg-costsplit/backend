@@ -21,10 +21,8 @@ jobs:
 
       - name: Publish to GitHub Packages
         env:
-          GPG_USER_KEY: ${{ secrets.GITHUB_TOKEN }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_USER_KEY }}
           MAVEN_REPO_PASS: ${{ secrets.MAVEN_REPO_PASS }}
           MAVEN_REPO_USER: ${{ secrets.MAVEN_REPO_USER }}
-        run: |
-          echo "$GPG_USER_KEY" > private.key
-          gpg --pinentry-mode loopback --passphrase $MAVEN_GPG_PASSPHRASE --import private.key
-          ./gradlew :api:publish -Pversion=${GITHUB_REF#refs/tags/}
+        run: ./gradlew :api:publish -Pversion=${GITHUB_REF#refs/tags/}

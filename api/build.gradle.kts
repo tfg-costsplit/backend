@@ -7,6 +7,7 @@ plugins {
     id("org.openapi.generator") version "7.12.0"
     java
     `maven-publish`
+    signing
 }
 
 sourceSets {
@@ -58,6 +59,13 @@ publishing {
             }
         }
     }
+}
+
+signing {
+    val signingKey: String? by project
+    val signingPassword: String? by project
+    useInMemoryPgpKeys(signingKey, signingPassword)
+    sign(publishing.publications["maven"])
 }
 
 dependencies {
