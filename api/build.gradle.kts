@@ -41,7 +41,7 @@ val junitVersion = "5.10.2"
 publishing {
     publications {
         create<MavenPublication>("maven") {
-            groupId = "io.github.costsplit"
+            groupId = "io.gitlab.rolfan"
             artifactId = "api"
             version =  project.findProperty("version") as String? ?: "0.1.0-SNAPSHOT"
 
@@ -50,11 +50,11 @@ publishing {
     }
     repositories {
         maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/tfg-costsplit/backend")
+            name = "OSSRH"
+            url = uri("https://oss.sonatype.org/service/local/staging/deploy/maven2/")
             credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
+                username = System.getenv("MAVEN_REPO_USER")
+                password = System.getenv("MAVEN_REPO_PASS")
             }
         }
     }
