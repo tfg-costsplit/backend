@@ -26,4 +26,4 @@ jobs:
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-        run: ./gradlew :api:publish :api:jreleaserDeploy -Pversion=${GITHUB_REF#refs/tags/}
+        run: ./gradlew --stacktrace :api:publish :api:jreleaserDeploy -Pversion=${GITHUB_REF#refs/tags/}
