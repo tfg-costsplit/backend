@@ -22,7 +22,7 @@ jobs:
       - name: Publish to GitHub Packages
         env:
           GPG_USER_KEY: ${{ secrets.GITHUB_TOKEN }}
-          MAVEN_REPO_PASS: ${{ secrets.MAVEN_REPO_PASS }
+          MAVEN_REPO_PASS: ${{ secrets.MAVEN_REPO_PASS }}
           MAVEN_REPO_USER: ${{ secrets.MAVEN_REPO_USER }}
         run:
           gpg --pinentry-mode loopback --passphrase $MAVEN_GPG_PASSPHRASE --import < "$GPG_USER_KEY"
