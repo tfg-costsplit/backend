@@ -42,11 +42,37 @@ val junitVersion = "5.10.2"
 publishing {
     publications {
         create<MavenPublication>("maven") {
-            groupId = "io.gitlab.rolfan"
+            groupId = "io.github.tfg-costsplit"
             artifactId = "api"
-            version =  project.findProperty("version") as String? ?: "0.1.0-SNAPSHOT"
+            version = project.findProperty("version") as String? ?: "0.1.0-SNAPSHOT"
 
             from(components["java"])
+
+            pom {
+                name.set("api")
+                description.set("costsplit java api")
+                url.set("https://github.com/yourname/yourproject")
+
+                licenses {
+                    license {
+                        name.set("GPL3")
+                        url.set("https://www.gnu.org/licenses/gpl-3.0.txt")
+                    }
+                }
+
+                developers {
+                    developer {
+                        name.set("Aimar Ibarra")
+                        email.set("aimar_ibarra@proton.me")
+                    }
+                }
+
+                scm {
+                    connection.set("scm:git:https://github.com/tfg-costsplit/backend.git")
+                    developerConnection.set("scm:git:ssh://git@github.com:tfg-costsplit/backend.git")
+                    url.set("https://github.com/tfg-costsplit/backend")
+                }
+            }
         }
     }
     repositories {
