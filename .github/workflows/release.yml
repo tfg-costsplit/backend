@@ -25,5 +25,5 @@ jobs:
           MAVEN_REPO_PASS: ${{ secrets.MAVEN_REPO_PASS }}
           MAVEN_REPO_USER: ${{ secrets.MAVEN_REPO_USER }}
         run: |
-          gpg --pinentry-mode loopback --passphrase $MAVEN_GPG_PASSPHRASE --import < "$GPG_USER_KEY"
+          gpg --pinentry-mode loopback --passphrase $MAVEN_GPG_PASSPHRASE --import <<< "$GPG_USER_KEY"
           ./gradlew :api:publish -Pversion=${GITHUB_REF#refs/tags/}
