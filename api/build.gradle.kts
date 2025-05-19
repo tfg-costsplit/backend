@@ -78,12 +78,7 @@ publishing {
     }
     repositories {
         maven {
-            name = "CentralPortal"
-            url = uri("https://central.sonatype.com/api/v1/publisher")
-            credentials {
-                username = System.getenv("MAVEN_REPO_USER")
-                password = System.getenv("MAVEN_REPO_PASS")
-            }
+            url = layout.buildDirectory.dir("staging-deploy").get().asFile.toURI()
         }
     }
 }
@@ -101,18 +96,11 @@ jreleaser {
                     username.set("SONATYPE_USERNAME")
                     password.set("SONATYPE_PASSWORD")
                     url.set("https://central.sonatype.com/api/v1/publisher")
-                    stagingRepository("build/libs")
+                    stagingRepository(layout.buildDirectory.dir("staging-deploy").get().asFile.toString())
                 }
             }
         }
     }
-}
-
-signing {
-    val signingKey: String? by project
-    val signingPassword: String? by project
-    useInMemoryPgpKeys(signingKey, signingPassword)
-    sign(publishing.publications["maven"])
 }
 
 dependencies {
