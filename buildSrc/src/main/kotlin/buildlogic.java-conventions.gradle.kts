@@ -16,7 +16,7 @@ repositories {
 }
 
 group = "io.github.costsplit"
-version = "1.0-SNAPSHOT"
+version = findProperty("version") as String? ?: "0.1.0-SNAPSHOT"
 java.sourceCompatibility = JavaVersion.VERSION_21
 
 tasks.withType<JavaCompile>() {
