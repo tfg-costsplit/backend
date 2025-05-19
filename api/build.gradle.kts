@@ -19,6 +19,11 @@ sourceSets {
     }
 }
 
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
 openApiGenerate {
     inputSpec = "$projectDir/src/main/resources/openapi.json"
     generatorName = "java"
