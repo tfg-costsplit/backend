@@ -77,8 +77,8 @@ publishing {
     }
     repositories {
         maven {
-            name = "OSSRH"
-            url = uri("https://central.sonatype.com/api/v1/publish")
+            name = "CentralPortal"
+            url = uri("https://central.sonatype.com/api/v1/publisher")
             credentials {
                 username = System.getenv("MAVEN_REPO_USER")
                 password = System.getenv("MAVEN_REPO_PASS")
