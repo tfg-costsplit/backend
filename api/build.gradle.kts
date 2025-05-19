@@ -43,9 +43,19 @@ publishing {
         create<MavenPublication>("maven") {
             groupId = "io.github.costsplit"
             artifactId = "api"
-            version = "0.1-SNAPSHOT"
+            version =  project.findProperty("version") as String? ?: "0.1.0-SNAPSHOT"
 
             from(components["java"])
+        }
+    }
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/tfg-costsplit/backend")
+            credentials {
+                username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+                password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
+            }
         }
     }
 }
