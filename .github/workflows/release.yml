@@ -21,8 +21,8 @@ jobs:
 
       - name: Publish to GitHub Packages
         env:
-          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
-          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_USER_KEY }}
-          MAVEN_REPO_PASS: ${{ secrets.MAVEN_REPO_PASS }}
-          MAVEN_REPO_USER: ${{ secrets.MAVEN_REPO_USER }}
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
         run: ./gradlew :api:jreleaserDeploy -Pversion=${GITHUB_REF#refs/tags/}

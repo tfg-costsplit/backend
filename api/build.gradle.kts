@@ -92,12 +92,17 @@ jreleaser {
     signing {
         setActive("ALWAYS")
         armored.set(true)
+        publicKey.set(System.getenv("GPG_PUBLIC_KEY"))
+        secretKey.set(System.getenv("GPG_SECRET_KEY"))
+        passphrase.set(System.getenv("GPG_PASSPHRASE"))
     }
     deploy {
         maven {
             mavenCentral {
                 create("sonatype") {
                     setActive("ALWAYS")
+                    username.set("SONATYPE_USERNAME")
+                    password.set("SONATYPE_PASSWORD")
                     url.set("https://central.sonatype.com/api/v1/publisher")
                     stagingRepository("target/staging-deploy")
                 }
