@@ -210,27 +210,31 @@ class App(
         val mail = SimpleEmail().apply {
             hostName = smtpHost
             setSmtpPort(this@App.smtpPort)
+            isSSLOnConnect = true
             authenticator = DefaultAuthenticator(senderMail, senderPassword)
             try {
                 setFrom(senderMail)
             } catch (e: EmailException) {
+                e.printStackTrace()
                 throw InternalServerErrorResponse("Something went wrong with out email service")
             }
             subject = mailSubject
             try {
                 addTo(receiver)
-            } catch (e: EmailException) {
+            } catch (_: EmailException) {
                 throw BadRequestResponse("Invalid email")
             }
             try {
                 setMsg(body)
             } catch (e: EmailException) {
+                e.printStackTrace()
                 throw InternalServerErrorResponse("Couldn't generate email message")
             }
         }
         try {
             mail.send()
         } catch (e: EmailException) {
+            e.printStackTrace()
             throw InternalServerErrorResponse("Couldn't send confirmation mail")
         }
     }
@@ -498,7 +502,7 @@ class App(
                     Purchase.selectAll().where { Purchase.group eq GroupUser.groupId })
             }.empty()
             if (notExists) throw NotFoundResponse("Purchase not found")
-            if (arrayOf(body.payer, body.cost, body.description).any { it != null })
+            if (arrayOf<Any?>(body.payer, body.cost, body.description).any { it != null })
                 Purchase.update({ Purchase.id eq id }) { row ->
                     body.payer?.let { row[payer] = it }
                     body.cost?.let { row[cost] = it.toULong() }

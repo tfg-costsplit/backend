@@ -30,6 +30,8 @@ fun main() {
         })
 
     val app = App(
+        smtpPort = 465,
+        smtpHost = "smtp.gmail.com",
         port = System.getenv("PORT")?.toInt() ?: 8080,
         senderMail = System.getenv("CS_SENDER_MAIL"),
         senderPassword = accessSecret(projectId, "smtp-pass"),

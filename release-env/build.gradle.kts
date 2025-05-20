@@ -46,7 +46,7 @@ appengine {
         setArtifact(layout.buildDirectory.file("libs/release-env-all.jar").get().asFile)
     }
     deploy {
-        projectId = System.getenv("GCP_PROJECTID")
+        projectId = "costsplit-456211"
         version = "test-1"
     }
 }

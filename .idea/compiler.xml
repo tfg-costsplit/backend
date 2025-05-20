@@ -3,4 +3,11 @@
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel target="21" />
   </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="costsplit-backend.app" options="-proc:none" />
+      <module name="costsplit-backend.app.main" options="-proc:none" />
+      <module name="costsplit-backend.app.test" options="-proc:none" />
+    </option>
+  </component>
 </project>
