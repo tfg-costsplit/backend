@@ -296,7 +296,7 @@ class App(
                         Hello ${body.name}!
                         We are sending you this message so you can confirm the creation of your account.
                         In order to verify please follow this link:
-                        https://$host:${app.port()}/auth/verify/${authProvider.generateToken(id.value)}
+                        https://$host/auth/verify/${authProvider.generateToken(id.value)}
                     """.trimIndent()
         )
         ctx.json(

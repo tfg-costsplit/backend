@@ -33,6 +33,7 @@ fun main() {
         smtpPort = 465,
         smtpHost = "smtp.gmail.com",
         port = System.getenv("PORT")?.toInt() ?: 8080,
+        host = "costsplit-456211.oa.r.appspot.com"
         senderMail = System.getenv("CS_SENDER_MAIL"),
         senderPassword = accessSecret(projectId, "smtp-pass"),
         secret = accessSecret(projectId, "main-secret"),
