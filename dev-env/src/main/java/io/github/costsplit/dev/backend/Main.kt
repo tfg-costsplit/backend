@@ -24,6 +24,7 @@ fun main() {
     val dumbster = SimpleSmtpServer.start(dt["CS_SMTP_PORT"].toInt())
 
     val app = App(
+        useSsl = false,
         host = dt["CS_HOST"],
         port = dt["CS_PORT"].toInt(),
         smtpHost = dt["CS_SMTP_HOST"],

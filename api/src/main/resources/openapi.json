@@ -504,6 +504,78 @@
         "security" : [ {
           "BearerAuth" : [ ]
         } ]
+      },
+      "delete" : {
+        "tags" : [ ],
+        "summary" : "Delete a group",
+        "description" : "\n            Deletes a group\n        ",
+        "operationId" : "deleteGroup",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "description" : "Group id",
+          "required" : false,
+          "deprecated" : false,
+          "allowEmptyValue" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false,
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ]
       }
     },
     "/purchase" : {
@@ -664,6 +736,78 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/PurchaseData"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false,
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ]
+      },
+      "delete" : {
+        "tags" : [ ],
+        "summary" : "Delete a purchase",
+        "description" : "\n            Deletes a purchase\n        ",
+        "operationId" : "deletePurchase",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "description" : "Purchase id",
+          "required" : false,
+          "deprecated" : false,
+          "allowEmptyValue" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonErrorResponse"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
                 }
               }
             }

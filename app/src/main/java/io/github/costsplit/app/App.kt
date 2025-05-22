@@ -109,13 +109,13 @@ private object Group : IntIdTable("group") {
 }
 
 private object GroupUser : Table("group-user") {
-    val groupId = reference("group", Group.id)
+    val groupId = reference("group", Group.id, onDelete = ReferenceOption.CASCADE)
     val user = reference("user", User.id)
     override val primaryKey = PrimaryKey(groupId, user)
 }
 
 private object Purchase : IntIdTable("purchase") {
-    val group = reference("group", Group.id)
+    val group = reference("group", Group.id, onDelete = ReferenceOption.CASCADE)
     val payer = reference("payer", User.id)
     val cost = ulong("cost")
     val description = varchar("description", 128)
@@ -123,7 +123,7 @@ private object Purchase : IntIdTable("purchase") {
 
 private object Payment : IntIdTable("payment") {
     val user = reference("user", User.id)
-    val purchase = reference("purchase", Purchase.id)
+    val purchase = reference("purchase", Purchase.id, onDelete = ReferenceOption.CASCADE)
     val paid = ulong("paid")
     val shouldPay = ulong("should_pay")
 }
@@ -166,6 +166,7 @@ private fun String.validatePassword(): String? = when {
 }
 
 class App(
+    private val useSsl: Boolean = false,
     internal val host: String = "localhost",
     private val port: Int = 8080,
     secret: String,
@@ -210,7 +211,7 @@ class App(
         val mail = SimpleEmail().apply {
             hostName = smtpHost
             setSmtpPort(this@App.smtpPort)
-            isSSLOnConnect = true
+            isSSLOnConnect = useSsl
             authenticator = DefaultAuthenticator(senderMail, senderPassword)
             try {
                 setFrom(senderMail)
@@ -502,12 +503,16 @@ class App(
                     Purchase.selectAll().where { Purchase.group eq GroupUser.groupId })
             }.empty()
             if (notExists) throw NotFoundResponse("Purchase not found")
-            if (arrayOf<Any?>(body.payer, body.cost, body.description).any { it != null })
-                Purchase.update({ Purchase.id eq id }) { row ->
-                    body.payer?.let { row[payer] = it }
-                    body.cost?.let { row[cost] = it.toULong() }
-                    body.description?.let { row[description] = it }
-                }
+            if (arrayOf<Any?>(
+                    body.payer,
+                    body.cost,
+                    body.description
+                ).any { it != null }
+            ) Purchase.update({ Purchase.id eq id }) { row ->
+                body.payer?.let { row[payer] = it }
+                body.cost?.let { row[cost] = it.toULong() }
+                body.description?.let { row[description] = it }
+            }
             body.payments?.let {
                 Payment.deleteWhere { Payment.id eq id }
                 Payment.batchInsert(it.entries) { (user, entry) ->
@@ -737,6 +742,69 @@ class App(
         ctx.result(token)
     }
 
+    @OpenApi(
+        operationId = "deleteGroup",
+        path = "/group/{id}",
+        summary = "Delete a group",
+        pathParams = [OpenApiParam("id", Int::class, "Group id")],
+        description = """
+            Deletes a group
+        """,
+        methods = [HttpMethod.DELETE],
+        security = [OpenApiSecurity("BearerAuth")],
+        responses = [OpenApiResponse(
+            "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse(
+            "400", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse(
+            "404", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse("200")]
+    )
+    private fun deleteGroup(ctx: Context) {
+        val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/missing token")
+        val uid: Int = jwt["id"]
+        val groupId = ctx.pathParamAsClass<Int>("id").getOrThrow { BadRequestResponse("Invalid/missing group id") }
+        val deleted = transaction(database) {
+            Group.deleteWhere {
+                Group.id eq groupId and exists(
+                    GroupUser.selectAll().where { GroupUser.user eq uid and (GroupUser.groupId eq Group.id) })
+            }
+        }
+        if (deleted == 0) throw NotFoundResponse("Group not found")
+    }
+
+    @OpenApi(
+        operationId = "deletePurchase",
+        path = "/purchase/{id}",
+        summary = "Delete a purchase",
+        pathParams = [OpenApiParam("id", Int::class, "Purchase id")],
+        description = """
+            Deletes a purchase
+        """,
+        methods = [HttpMethod.DELETE],
+        security = [OpenApiSecurity("BearerAuth")],
+        responses = [OpenApiResponse(
+            "401", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse(
+            "400", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse(
+            "404", [OpenApiContent(String::class), OpenApiContent(JsonErrorResponse::class)]
+        ), OpenApiResponse("200")]
+    )
+    private fun deletePurchase(ctx: Context) {
+        val jwt = ctx.getToken() ?: throw UnauthorizedResponse("Invalid/missing token")
+        val uid: Int = jwt["id"]
+        val purchaseId =
+            ctx.pathParamAsClass<Int>("id").getOrThrow { BadRequestResponse("Invalid/missing purchase id") }
+        val deleted = transaction(database) {
+            Purchase.deleteWhere {
+                Purchase.id eq purchaseId and exists(
+                    GroupUser.selectAll().where { GroupUser.user eq uid and (GroupUser.groupId eq Purchase.group) })
+            }
+        }
+        if (deleted == 0) throw NotFoundResponse("Purchase not found")
+    }
+
     internal val app = Javalin.create { config ->
         config.jetty.defaultPort = port
         config.events.serverStarting {
@@ -774,6 +842,7 @@ class App(
             path("group") {
                 post(::createGroup)
                 get("{id}", ::getGroupData)
+                delete("{id}", ::deleteGroup)
             }
             get("group-invite/{id}", ::getGroupInvite)
             post("group-join/{token}", ::joinGroup)
@@ -782,6 +851,7 @@ class App(
                 post(::createPurchase)
                 post("{id}", ::updatePurchase)
                 get("{id}", ::getPurchaseData)
+                delete("{id}", ::deletePurchase)
             }
         }
     }
